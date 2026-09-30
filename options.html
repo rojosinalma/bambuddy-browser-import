@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bambuddy Import — Settings</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+<div class="page">
+
+  <!-- ── Page header ──────────────────────────────────────────────────────── -->
+  <div class="page-header">
+    <div class="page-logo">
+      <svg viewBox="0 0 24 24">
+        <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+        <path d="M6 9V3h12v6"/>
+        <rect x="6" y="14" width="12" height="8"/>
+      </svg>
+    </div>
+    <div>
+      <div class="page-title">Bambuddy Import</div>
+      <div class="page-subtitle">Extension settings — connect to your Bambuddy instance</div>
+    </div>
+  </div>
+
+  <!-- ── Connection card ──────────────────────────────────────────────────── -->
+  <div class="card">
+    <div class="card-title">Connection</div>
+
+    <div class="field">
+      <label for="bambuddy-url">Bambuddy URL</label>
+      <input type="url" id="bambuddy-url"
+             placeholder="http://192.168.1.100:8000"
+             autocomplete="off" spellcheck="false">
+      <div class="field-hint">
+        The base URL of your Bambuddy instance — no trailing slash needed.
+        Use <code>http://</code> for local network addresses.
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="api-key">API Key</label>
+      <div class="input-row">
+        <input type="password" id="api-key"
+               placeholder="Paste your API key here"
+               autocomplete="off" spellcheck="false">
+        <button class="btn btn-ghost" id="btn-toggle-key" title="Show/hide key" type="button">
+          <svg id="eye-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+            <circle cx="12" cy="12" r="3"/>
+          </svg>
+        </button>
+      </div>
+      <div class="field-hint">
+        Required permissions: <code>Manage Library</code> + <code>Allow cloud access</code>.
+        See the setup guide below.
+      </div>
+    </div>
+
+    <div id="conn-status" style="display:none"></div>
+
+    <div class="btn-row">
+      <button class="btn btn-primary" id="btn-save">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+          <polyline points="17 21 17 13 7 13 7 21"/>
+          <polyline points="7 3 7 8 15 8"/>
+        </svg>
+        Save
+      </button>
+      <button class="btn btn-ghost" id="btn-test">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+        </svg>
+        Test Connection
+      </button>
+    </div>
+  </div>
+
+  <!-- ── Behaviour card ───────────────────────────────────────────────────── -->
+  <div class="card">
+    <div class="card-title">Behaviour</div>
+
+    <div class="field">
+      <div class="toggle-row">
+        <div class="toggle-info">
+          <div class="toggle-label">Auto-close after import</div>
+          <div class="field-hint">Close the popup automatically after a successful import.</div>
+        </div>
+        <label class="toggle" title="Auto-close after import">
+          <input type="checkbox" id="auto-close">
+          <span class="toggle-track"><span class="toggle-thumb"></span></span>
+        </label>
+      </div>
+      <div id="delay-row" class="delay-row" style="display:none">
+        <span>Close after</span>
+        <input type="number" id="auto-close-delay" min="1" max="30" value="3">
+        <span>seconds</span>
+      </div>
+    </div>
+
+    <div class="field">
+      <div class="toggle-row">
+        <div class="toggle-info">
+          <div class="toggle-label">Show "Open in Bambuddy" after import</div>
+          <div class="field-hint">Display a button to jump directly to the imported file in Bambuddy's File Manager.</div>
+        </div>
+        <label class="toggle" title="Show open in Bambuddy button">
+          <input type="checkbox" id="show-open-btn" checked>
+          <span class="toggle-track"><span class="toggle-thumb"></span></span>
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── API key setup guide ──────────────────────────────────────────────── -->
+  <div class="card">
+    <div class="card-title">How to create an API key</div>
+
+    <div class="help-item">
+      <div class="help-num">1</div>
+      <div class="help-text">
+        Open your Bambuddy instance and go to
+        <strong>Settings → API Keys</strong>.
+      </div>
+    </div>
+    <div class="help-item">
+      <div class="help-num">2</div>
+      <div class="help-text">
+        Click <strong>Create API Key</strong>. Give it a name (e.g. "Chrome Extension").
+      </div>
+    </div>
+    <div class="help-item">
+      <div class="help-num">3</div>
+      <div class="help-text">
+        Enable <strong>Manage Library</strong> — this covers saving and importing
+        models, including MakerWorld imports.
+      </div>
+    </div>
+    <div class="help-item">
+      <div class="help-num">4</div>
+      <div class="help-text">
+        Also enable <strong>Allow cloud access</strong> — required for Bambuddy to
+        use your Bambu Cloud token when downloading from MakerWorld.
+      </div>
+    </div>
+    <div class="help-item">
+      <div class="help-num">5</div>
+      <div class="help-text">
+        Make sure the Bambu Cloud account is linked under
+        <strong>Settings → Bambu Cloud</strong>. The same account's bearer token
+        is used for all MakerWorld downloads.
+      </div>
+    </div>
+    <div class="help-item">
+      <div class="help-num">6</div>
+      <div class="help-text">
+        Copy the key (shown only once) and paste it above. Save.
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Usage tips ────────────────────────────────────────────────────────── -->
+  <div class="card">
+    <div class="card-title">Usage tips</div>
+
+    <div class="help-item">
+      <div class="help-num">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="8" x2="12" y2="12"/>
+          <line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+      </div>
+      <div class="help-text">
+        If you click on a specific print profile on MakerWorld before opening the
+        extension, the URL will contain <code>#profileId-XXXXX</code> and that
+        profile will be pre-selected automatically.
+      </div>
+    </div>
+    <div class="help-item">
+      <div class="help-num">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="8" x2="12" y2="12"/>
+          <line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+      </div>
+      <div class="help-text">
+        Profiles already in your library are marked with a <strong>✓</strong> in
+        the dropdown. Importing them again is safe — Bambuddy will return a
+        duplicate notice.
+      </div>
+    </div>
+    <div class="help-item">
+      <div class="help-num">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="8" x2="12" y2="12"/>
+          <line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+      </div>
+      <div class="help-text">
+        Bambu Cloud tokens expire after ~90 days. If imports start failing with
+        "requires a Bambu Cloud login", re-authenticate under
+        <strong>Settings → Bambu Cloud</strong> in Bambuddy.
+      </div>
+    </div>
+  </div>
+
+  <div class="version-tag" id="version-tag">v1.0.0</div>
+
+</div>
+<script src="options.js"></script>
+</body>
+</html>

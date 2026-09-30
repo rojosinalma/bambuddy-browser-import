@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Send to Bambuddy</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+
+  <!-- ── Header ─────────────────────────────────────────────────────────── -->
+  <div class="header">
+    <div class="header-left">
+      <div class="header-logo">
+        <!-- Printer icon -->
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+          <path d="M6 9V3h12v6"/>
+          <rect x="6" y="14" width="12" height="8"/>
+        </svg>
+      </div>
+      <div>
+        <div class="header-title">Bambuddy Import</div>
+        <div class="header-subtitle" id="header-subtitle">MakerWorld</div>
+      </div>
+    </div>
+    <button class="btn-icon" id="btn-settings" title="Settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33
+                 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33
+                 l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4
+                 h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65
+                 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0
+                 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2
+                 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+      </svg>
+    </button>
+  </div>
+
+  <!-- ── Main content ────────────────────────────────────────────────────── -->
+  <div class="content" id="content">
+
+    <!-- Unconfigured state -->
+    <div id="state-unconfigured" class="state-screen" style="display:none">
+      <div class="state-icon orange">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+      </div>
+      <div class="state-title">Bambuddy not configured</div>
+      <div class="state-body">Add your Bambuddy URL and API key to get started.</div>
+      <button class="btn-link" id="btn-go-settings">Open Settings →</button>
+    </div>
+
+    <!-- Wrong page state -->
+    <div id="state-wrong-page" class="state-screen" style="display:none">
+      <div class="state-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="2" y1="12" x2="22" y2="12"/>
+          <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+        </svg>
+      </div>
+      <div class="state-title">Navigate to MakerWorld</div>
+      <div class="state-body">Open a model page on makerworld.com, then click this extension to import it.</div>
+    </div>
+
+    <!-- Loading skeleton -->
+    <div id="state-loading" style="display:none">
+      <div class="skel-card">
+        <div class="skeleton skel-thumb"></div>
+        <div class="skel-body">
+          <div class="skeleton skel-line w75"></div>
+          <div class="skeleton skel-line w50"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Model card (main state) -->
+    <div id="state-model" style="display:none">
+      <div class="model-card">
+        <div class="model-thumb-wrap">
+          <img id="model-thumb" class="model-thumb" alt="Model thumbnail" style="display:none">
+          <div id="model-thumb-placeholder" class="model-thumb-placeholder">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>
+              <polyline points="21 15 16 10 5 21"/>
+            </svg>
+          </div>
+        </div>
+        <div class="model-info">
+          <div class="model-title" id="model-title"></div>
+        </div>
+      </div>
+
+      <!-- Profile card picker (replaces the old <select>) -->
+      <div class="profile-section">
+        <div class="profile-section-label">Print Profile</div>
+        <div id="profile-list" class="profile-list"></div>
+      </div>
+
+      <!-- Action footer — always pinned at the bottom of the popup -->
+      <div class="action-footer">
+        <button class="btn-primary" id="btn-import">
+          <span class="btn-spinner"><span class="spinner"></span></span>
+          <span class="btn-label">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            Send to Bambuddy
+          </span>
+        </button>
+
+        <div id="result-banner" class="result-banner" style="display:none">
+          <svg id="result-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></svg>
+          <span id="result-text"></span>
+        </div>
+
+        <a id="btn-open-bambuddy" class="btn-open-bambuddy" href="#" target="_blank"
+           style="display:none">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+            <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+          </svg>
+          Open in Bambuddy
+        </a>
+      </div>
+    </div>
+
+    <!-- Error state -->
+    <div id="state-error" class="state-screen" style="display:none">
+      <div class="state-icon red">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
+        </svg>
+      </div>
+      <div class="state-title">Could not resolve model</div>
+      <div class="state-body" id="error-detail"></div>
+      <button class="btn-link" id="btn-retry">Try again</button>
+    </div>
+
+  </div><!-- /content -->
+
+  <script src="popup.js"></script>
+</body>
+</html>
