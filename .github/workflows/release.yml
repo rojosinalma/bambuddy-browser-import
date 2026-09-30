@@ -80,6 +80,8 @@ jobs:
             --zip "build/${{ steps.meta.outputs.chrome_zip }}" \
             --out "build/${{ steps.meta.outputs.chrome_crx }}"
           rm -f "$RUNNER_TEMP/cws.pem"
+          # Chromium browsers discard .crx downloads from outside the Web Store; a zipped copy survives.
+          (cd build && zip -q -X "${{ steps.meta.outputs.chrome_crx }}.zip" "${{ steps.meta.outputs.chrome_crx }}")
 
       - name: Build Firefox xpi (unsigned)
         if: steps.exists.outputs.skip == 'false'
@@ -115,5 +117,5 @@ jobs:
             build/*.zip build/*.crx build/*.xpi \
             --title "${{ steps.meta.outputs.tag }}" \
             --generate-notes \
-            --notes "**Chrome / Chromium / Edge / Brave:** download the \`.zip\`, unzip, \`chrome://extensions\` → Developer mode → Load unpacked. The \`.crx\` is the store-upload package, signed with the project's Verified CRX Uploads key.
+            --notes "**Chrome / Chromium / Edge / Brave:** download the \`.zip\`, unzip, \`chrome://extensions\` → Developer mode → Load unpacked. The \`.crx\` is the store-upload package, signed with the project's Verified CRX Uploads key — grab the \`.crx.zip\` if your browser blocks the bare file.
           **Firefox:** install from [addons.mozilla.org](https://addons.mozilla.org/firefox/addon/bambuddy-browser-import/) — the \`.xpi\` here is the unsigned source package (temporary install via \`about:debugging\` only)."
