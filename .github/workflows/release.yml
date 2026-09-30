@@ -77,6 +77,7 @@ jobs:
       # https://addons.mozilla.org/developers/addon/api/key/ ; skipped when absent.
       - name: Submit to addons.mozilla.org
         if: steps.exists.outputs.skip == 'false' && env.AMO_JWT_ISSUER != ''
+        continue-on-error: true   # a version already on AMO must not block the GitHub release
         env:
           AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
           AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
