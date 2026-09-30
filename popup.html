@@ -12,12 +12,7 @@
   <div class="header">
     <div class="header-left">
       <div class="header-logo">
-        <!-- Printer icon -->
-        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-          <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
-          <path d="M6 9V3h12v6"/>
-          <rect x="6" y="14" width="12" height="8"/>
-        </svg>
+        <img src="icons/icon48.png" alt="" width="24" height="24">
       </div>
       <div>
         <div class="header-title">Bambuddy Import</div>
@@ -99,10 +94,41 @@
         </div>
       </div>
 
-      <!-- Profile card picker (replaces the old <select>) -->
+      <!-- Profile card picker — multi-select -->
       <div class="profile-section">
-        <div class="profile-section-label">Print Profile</div>
+        <div class="profile-section-head">
+          <div class="profile-section-label">Print Profiles <span id="sel-count" class="sel-count"></span></div>
+          <div class="sel-actions">
+            <button class="btn-mini" id="btn-select-all" type="button">All</button>
+            <button class="btn-mini" id="btn-select-none" type="button">None</button>
+          </div>
+        </div>
         <div id="profile-list" class="profile-list"></div>
+      </div>
+
+      <!-- Target folder -->
+      <div class="folder-row">
+        <label for="folder-select" class="folder-label">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+          </svg>
+        </label>
+        <select id="folder-select" class="folder-select" title="Target library folder">
+          <option value="">Default (MakerWorld)</option>
+        </select>
+        <button class="btn-icon" id="btn-new-folder" type="button" title="New folder">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+            <line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/>
+          </svg>
+        </button>
+      </div>
+      <div id="new-folder-row" class="new-folder-row" style="display:none">
+        <input type="text" id="new-folder-name" placeholder="New folder name" maxlength="255" spellcheck="false">
+        <button class="btn-mini primary" id="btn-create-folder" type="button">Create</button>
+        <button class="btn-mini" id="btn-cancel-folder" type="button">Cancel</button>
       </div>
 
       <!-- Action footer — always pinned at the bottom of the popup -->
@@ -115,9 +141,14 @@
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
               <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
             </svg>
-            Send to Bambuddy
+            <span id="btn-import-text">Import</span>
           </span>
         </button>
+
+        <div id="job-progress" class="job-progress" style="display:none">
+          <div class="job-bar"><div id="job-bar-fill" class="job-bar-fill"></div></div>
+          <span id="job-progress-text"></span>
+        </div>
 
         <div id="result-banner" class="result-banner" style="display:none">
           <svg id="result-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -153,6 +184,7 @@
 
   </div><!-- /content -->
 
+  <script src="shared.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

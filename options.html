@@ -12,15 +12,11 @@
   <!-- ── Page header ──────────────────────────────────────────────────────── -->
   <div class="page-header">
     <div class="page-logo">
-      <svg viewBox="0 0 24 24">
-        <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
-        <path d="M6 9V3h12v6"/>
-        <rect x="6" y="14" width="12" height="8"/>
-      </svg>
+      <img src="icons/icon128.png" alt="" width="44" height="44">
     </div>
     <div>
       <div class="page-title">Bambuddy Import</div>
-      <div class="page-subtitle">Extension settings — connect to your Bambuddy instance</div>
+      <div class="page-subtitle">Browser import — connect to your Bambuddy instance</div>
     </div>
   </div>
 
@@ -88,18 +84,33 @@
     <div class="field">
       <div class="toggle-row">
         <div class="toggle-info">
-          <div class="toggle-label">Auto-close after import</div>
-          <div class="field-hint">Close the popup automatically after a successful import.</div>
+          <div class="toggle-label">Parallel imports</div>
+          <div class="field-hint">How many plates Bambuddy downloads at the same time when several are selected.</div>
         </div>
-        <label class="toggle" title="Auto-close after import">
-          <input type="checkbox" id="auto-close">
+        <input type="number" id="concurrency" class="num-input" min="1" max="6" value="3">
+      </div>
+    </div>
+
+    <div class="field">
+      <div class="toggle-row">
+        <div class="toggle-info">
+          <div class="toggle-label">Notify when an import finishes</div>
+          <div class="field-hint">Imports keep running after the popup closes; a desktop notification tells you when they are done. Click it to open the folder in Bambuddy.</div>
+        </div>
+        <label class="toggle" title="Notify when an import finishes">
+          <input type="checkbox" id="notify-complete" checked>
           <span class="toggle-track"><span class="toggle-thumb"></span></span>
         </label>
       </div>
-      <div id="delay-row" class="delay-row" style="display:none">
-        <span>Close after</span>
-        <input type="number" id="auto-close-delay" min="1" max="30" value="3">
-        <span>seconds</span>
+    </div>
+
+    <div class="field">
+      <div class="toggle-row">
+        <div class="toggle-info">
+          <div class="toggle-label">Model cache (seconds)</div>
+          <div class="field-hint">A model page is resolved as soon as it loads and kept this long, so the popup opens instantly. Lower it if profile lists look stale.</div>
+        </div>
+        <input type="number" id="resolve-ttl" class="num-input" min="30" max="3600" step="30" value="300">
       </div>
     </div>
 
@@ -107,7 +118,7 @@
       <div class="toggle-row">
         <div class="toggle-info">
           <div class="toggle-label">Show "Open in Bambuddy" after import</div>
-          <div class="field-hint">Display a button to jump directly to the imported file in Bambuddy's File Manager.</div>
+          <div class="field-hint">Display a button that opens the target folder in Bambuddy's File Manager after an import.</div>
         </div>
         <label class="toggle" title="Show open in Bambuddy button">
           <input type="checkbox" id="show-open-btn" checked>
@@ -131,7 +142,7 @@
     <div class="help-item">
       <div class="help-num">2</div>
       <div class="help-text">
-        Click <strong>Create API Key</strong>. Give it a name (e.g. "Chrome Extension").
+        Click <strong>Create API Key</strong>. Give it a name (e.g. "Browser Import").
       </div>
     </div>
     <div class="help-item">
@@ -193,9 +204,9 @@
         </svg>
       </div>
       <div class="help-text">
-        Profiles already in your library are marked with a <strong>✓</strong> in
-        the dropdown. Importing them again is safe — Bambuddy will return a
-        duplicate notice.
+        Click several profile cards (or <strong>All</strong>) to import them in one
+        go, and pick the target library folder below the list. Importing a plate
+        that is already in your library is safe — Bambuddy reports it as existing.
       </div>
     </div>
     <div class="help-item">
@@ -218,6 +229,7 @@
   <div class="version-tag" id="version-tag">v1.0.0</div>
 
 </div>
+<script src="shared.js"></script>
 <script src="options.js"></script>
 </body>
 </html>

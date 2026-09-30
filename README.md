@@ -1,27 +1,42 @@
-# Bambuddy MakerWorld Import — Chrome Extension
+# Bambuddy Browser Import
 
-Send any MakerWorld print profile to your Bambuddy instance in one click, exactly as if you used the built-in **Import from MakerWorld** feature inside Bambuddy.
+Import MakerWorld print profiles into your [Bambuddy](https://github.com/maziggy/bambuddy) library
+from the browser — pick the plates, pick the folder, one click. Works in Chrome and Firefox from the
+same codebase.
 
-<img width="1479" height="886" alt="image" src="https://github.com/user-attachments/assets/8d3f1f4f-710a-48f1-bf9a-c9623d33384a" />
+Fork of [wolfrage76/Bambuddy-Extension](https://github.com/wolfrage76/Bambuddy-Extension) with:
+
+- **Multi-select** — import one plate, a few, or all of them in one go
+- **Folder picker** — choose the target library folder (or create one) instead of always landing in `MakerWorld/`
+- **Background imports** — the job runs in the extension's background worker, so closing the popup no longer cancels it; reopen it to see live progress, or wait for the desktop notification
+- **Instant popup** — models are resolved the moment the page loads and cached; thumbnails are fetched at 200 px instead of full size (~8 KB instead of ~1.3 MB each)
+- **Open in Bambuddy** always lands in the folder the plates were saved to
 
 ---
 
 ## Installation
 
-1. Open Chrome and navigate to `chrome://extensions/`
+### Chrome / Chromium / Edge / Brave
+
+1. Open `chrome://extensions/`
 2. Enable **Developer mode** (top-right toggle)
 3. Click **Load unpacked** and select this folder
-4. The Bambuddy icon will appear in your toolbar (pin it via the puzzle-piece menu for easy access)
+4. Pin the icon via the puzzle-piece menu
+
+### Firefox (≥ 128)
+
+1. Open `about:debugging#/runtime/this-firefox`
+2. Click **Load Temporary Add-on…** and select `manifest.json`
+
+Temporary add-ons are removed when Firefox exits; a signed build will follow.
 
 ---
 
 ## First-time setup
 
-Click the extension icon and then the gear (⚙) button, or right-click the icon → **Options**.
+Click the extension icon → gear (⚙), or right-click the icon → **Options**.
 
 ### 1. Bambuddy URL
-
-Enter the base URL of your Bambuddy instance:
 
 | Setup | Example URL |
 |---|---|
@@ -29,64 +44,85 @@ Enter the base URL of your Bambuddy instance:
 | Docker on same machine | `http://localhost:8000` |
 | Reverse-proxied with HTTPS | `https://bambuddy.example.com` |
 
-### 2. API Key
+Saving asks the browser for permission to reach that one origin — the extension does not hold a
+blanket host permission.
 
-Create a dedicated key in Bambuddy:
+### 2. API key
 
-1. **Settings → API Keys → Create API Key**
-2. Give it a descriptive name (e.g. *Chrome Extension*)
-3. Enable **Manage Library** — covers saving files and importing from MakerWorld
-4. Enable **Allow cloud access** — required for Bambuddy to use your Bambu Cloud token when downloading from MakerWorld
-5. Make sure a Bambu Cloud account is linked under **Settings → Bambu Cloud**
-6. Copy the key (it's shown only once) and paste it into the extension
+Create a dedicated key in Bambuddy under **Settings → API Keys → Create API Key**:
 
-Click **Test Connection** to verify everything works before saving. The test runs three checks in order:
-- `GET /health` — unauthenticated, confirms the URL is reachable
-- `GET /api/v1/system/info` — confirms the API key is valid, shows Bambuddy version
-- `GET /api/v1/makerworld/status` — best-effort, reports whether the Bambu Cloud token is present
+- enable **Manage Library** (saving files, importing from MakerWorld, listing/creating folders)
+- enable **Allow cloud access** (Bambuddy uses your Bambu Cloud token to download from MakerWorld)
+- make sure a Bambu Cloud account is linked under **Settings → Bambu Cloud**
+
+Paste the key, click **Test Connection**, then **Save**. The test runs three checks:
+`GET /health` (reachable), `GET /api/v1/system/info` (key valid, shows version),
+`GET /api/v1/makerworld/status` (cloud token present).
+
+### 3. Behaviour
+
+| Setting | Default | What it does |
+|---|---|---|
+| Parallel imports | 3 | Plates downloaded concurrently when several are selected |
+| Notify when an import finishes | on | Desktop notification with the outcome; clicking it opens the folder in Bambuddy |
+| Model cache | 300 s | How long a resolved model page is kept so the popup opens instantly |
+| Show "Open in Bambuddy" | on | Button to jump to the target folder after an import |
 
 ---
 
 ## Usage
 
-1. Browse [makerworld.com](https://makerworld.com) and open any model page
-2. Optionally, click the specific print profile you want so the URL includes `#profileId-XXXXX` — the extension will pre-select it
-3. Click the Bambuddy icon in the toolbar
-4. The popup resolves the model and shows all available print profiles
-5. Select the profile you want (it is pre-selected from the URL if you clicked one)
-6. Click **Send to Bambuddy** — the 3MF is downloaded into your Bambuddy library just like a manual import
+1. Open any model page on [makerworld.com](https://makerworld.com) — the toolbar icon shows a green **↓**
+2. Click the icon. The profile you clicked on the page (or MakerWorld's default) is pre-selected
+3. Click more cards to add them, or use **All** / **None**
+4. Pick the target folder (the last one used is remembered), or hit the folder-plus icon to create one
+5. Click **Import N plates**
 
-Profiles already in your library appear with a ✓ and an "Already in library" badge.
+You can close the popup at this point. The badge counts down the remaining plates, each card shows
+its own status when you reopen the popup, and a notification fires when everything is done.
+
+Plates already in your library are reported as such and not downloaded again.
 
 ---
 
-## Suggestions & notes
+## Notes
+
+### Where do "Open in Bambuddy" links go?
+
+Bambuddy's File Manager deep-links by folder only (`/files?folder=N`); there is no per-file
+parameter. The button therefore opens the folder Bambuddy saved to — the one you picked, or the
+auto-created `MakerWorld` folder if you left the default.
+
+### Why does the popup not stay open?
+
+Browser popups close as soon as they lose focus, by design. That is why imports run in the
+background worker rather than in the popup, and why the old "auto-close" option is gone.
 
 ### Security
-The extension uses `<all_urls>` host permissions so it can reach your Bambuddy instance at any IP/hostname. For a personal self-hosted tool this is fine. If you want to tighten this, edit `manifest.json` and add your specific Bambuddy URL as a host permission, then handle the `chrome.permissions.request` flow in `options.js`.
 
-### API key permissions
-The key needs **Manage Library** and **Allow cloud access** — both are required. If imports return *"Downloading files from MakerWorld requires a Bambu Cloud login"* even with valid credentials, make sure **Allow cloud access** is checked on the key.
+- Host permission is requested for your Bambuddy origin only, at save time.
+- The API key is kept in `chrome.storage.local`, which is plaintext on disk — use a dedicated key
+  with just the two permissions above.
+- Thumbnails are loaded through Bambuddy's own proxy (`/api/v1/makerworld/thumbnail`), so your IP
+  is not exposed to MakerWorld's CDN directly; the direct CDN URL is only a fallback if the proxy fails.
 
 ### Bambu Cloud token expiry
-Bambu Cloud tokens are valid for ~90 days. If imports start failing after a long period, re-authenticate under **Settings → Bambu Cloud** in Bambuddy to refresh the token.
 
-### Multi-plate models
-The popup shows all plates/profiles for a model in the dropdown. Use Bambuddy's built-in **Import all plates** feature for bulk import; this extension is designed for single-profile one-click imports.
-
-### Content Security Policy
-The popup loads the model thumbnail through Bambuddy's own proxy endpoint (`/api/v1/makerworld/thumbnail`) — your IP is never exposed to MakerWorld's CDN directly (mirrors Bambuddy's own behavior).
+Bambu Cloud tokens last ~90 days. If imports start failing with "requires a Bambu Cloud login",
+re-authenticate under **Settings → Bambu Cloud** in Bambuddy.
 
 ---
 
 ## File structure
 
 ```
-├── manifest.json       MV3 manifest
-├── background.js       Service worker — handles all Bambuddy API calls
-├── popup.html/js/css   Toolbar popup — resolve + import UI
-├── options.html/js/css Settings page — URL, API key, test connection
-└── icons/              Extension icons (16, 48, 128 px)
+├── manifest.json       MV3 manifest (service_worker for Chrome, scripts for Firefox)
+├── shared.js           Constants, settings, helpers used by every context
+├── background.js       Background worker — API calls, resolve cache, import queue, notifications
+├── content.js          Runs on makerworld.com — reports the profile selected on the page
+├── popup.html/js/css   Toolbar popup — cards, folder picker, progress
+├── options.html/js/css Settings page
+└── icons/              16 / 32 / 48 / 64 / 128 px, rendered from icons/src/icon.svg
 ```
 
 ---
@@ -96,10 +132,10 @@ The popup loads the model thumbnail through Bambuddy's own proxy endpoint (`/api
 | Symptom | Likely cause |
 |---|---|
 | "Bambuddy not configured" | Open Settings and enter your URL + API key |
-| Test connection: "not reachable" | Wrong IP/port, or Bambuddy isn't running. Default port is `8000`. |
-| Test connection: HTTP 401 | API key is invalid or wasn't saved yet |
-| Test connection: HTTP 403 | API key doesn't have the required permissions — check **Manage Library** and **Allow cloud access** |
-| "Could not resolve model" | Network issue, or the MakerWorld feature isn't enabled on your build |
-| "requires a Bambu Cloud login" | API key missing **Allow cloud access**, or Bambu Cloud token expired |
-| Thumbnail doesn't load | Bambuddy's thumbnail proxy may not be available on older builds; the extension falls back to the direct CDN URL |
-| Profile list is empty | The model page returned no profiles from the resolve endpoint; try re-opening the popup |
+| Test connection: "not reachable" | Wrong IP/port, or Bambuddy isn't running. Default port is `8000` |
+| Test connection: HTTP 401 | API key invalid or not saved yet |
+| Test connection: HTTP 403 | Key lacks **Manage Library** or **Allow cloud access** |
+| Folder dropdown only shows "Default" | Key lacks **Manage Library**, or Bambuddy is older than the folders API |
+| "requires a Bambu Cloud login" | Key missing **Allow cloud access**, or the cloud token expired |
+| Profile list looks stale | Lower the model cache in Settings, or use **Try again** |
+| No completion notification | Enable it in Settings; check the browser's notification permission for extensions |

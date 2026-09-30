@@ -1,20 +1,14 @@
 /**
  * Popup script.
- * Orchestrates: settings check → tab URL read → resolve call → import call.
- * All network calls go through background.js to avoid CORS issues.
  *
- * Resolve response shape (MakerworldResolvedModel from Bambuddy):
- *   model_id:                    number          — integer design ID
- *   profile_id:                  number | null   — pre-selected profile from URL fragment
- *   design:                      object          — MakerWorld design metadata (title, coverUrl, …)
- *   instances:                   object[]        — print profiles; each has id, profileId, title, cover
- *   already_imported_library_ids: number[]       — library file IDs (not profile IDs)
+ * Flow: settings check → tab URL → (resolve ∥ page profile hint ∥ folders)
+ *       → render cards → user picks plates + folder → hand the job to the
+ *       background worker → mirror its progress from session storage.
  *
- * Import request body:
- *   model_id, instance_id, profile_id, folder_id
+ * The popup owns no long-running work: Chrome closes it the moment focus moves
+ * elsewhere, so imports run in background.js and this page just renders
+ * whatever job state exists for the current model.
  */
-
-// ─── DOM references ──────────────────────────────────────────────────────────
 
 const $ = id => document.getElementById(id);
 
@@ -26,91 +20,59 @@ const states = {
   error:        $('state-error')
 };
 
-// ─── State helpers ───────────────────────────────────────────────────────────
-
 function showOnly(key) {
-  for (const [k, el] of Object.entries(states)) {
-    el.style.display = k === key ? '' : 'none';
-  }
+  for (const [k, el] of Object.entries(states)) el.style.display = k === key ? '' : 'none';
 }
 
+const RESULT_ICONS = {
+  success: '<polyline points="20 6 9 17 4 12"/>',
+  info:    '<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>',
+  error:   '<circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>'
+};
+
 function showResult(type, text) {
-  const iconPaths = {
-    success: '<polyline points="20 6 9 17 4 12"/>',
-    info:    '<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>',
-    error:   '<circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>'
-  };
   const banner = $('result-banner');
   banner.className = `result-banner ${type}`;
-  $('result-icon').innerHTML = iconPaths[type] ?? '';
+  $('result-icon').innerHTML = RESULT_ICONS[type] ?? '';
   $('result-text').textContent = text;
   banner.style.display = 'flex';
 }
 
-// ─── Messaging ────────────────────────────────────────────────────────────────
+function hideResult() { $('result-banner').style.display = 'none'; }
 
-function sendToBackground(message) {
-  return new Promise((resolve, reject) => {
-    chrome.runtime.sendMessage(message, response => {
-      if (chrome.runtime.lastError) {
-        reject(new Error(chrome.runtime.lastError.message));
-        return;
-      }
-      if (!response.success) {
-        reject(new Error(response.error ?? 'Unknown error'));
-        return;
-      }
-      resolve(response.data);
-    });
-  });
+async function sendToBackground(message) {
+  const response = await chrome.runtime.sendMessage(message);
+  if (!response) throw new Error(chrome.runtime.lastError?.message ?? 'No response from background');
+  if (!response.success) throw new Error(response.error ?? 'Unknown error');
+  return response.data;
 }
 
-// ─── Resolve flow ────────────────────────────────────────────────────────────
+// ─── Session state ───────────────────────────────────────────────────────────
 
-/** State kept during a resolve/import session. */
-let session = {
-  resolveData:   null,
-  bambuddyUrl:   null,
-  selectedValue: null  // "instanceId:profileId" for the currently selected card
+const session = {
+  tabId:       null,
+  tabUrl:      '',
+  modelId:     null,
+  resolveData: null,
+  bambuddyUrl: '',
+  settings:    null,
+  cards:       new Map(),   // profileId → { el, instanceId, name, cover }
+  selected:    new Set(),   // profileIds
+  job:         null
 };
 
-/**
- * Set the popup thumbnail to a MakerWorld CDN URL, proxied through Bambuddy.
- * Clears the image if url is empty.
- */
-function setThumbnail(url) {
-  const img = $('model-thumb');
-  const placeholder = $('model-thumb-placeholder');
-  if (!url) {
-    img.style.display = 'none';
-    placeholder.style.display = '';
-    return;
-  }
-  const proxied = `${session.bambuddyUrl}/api/v1/makerworld/thumbnail?url=${encodeURIComponent(url)}`;
-  img.onload = () => { img.style.display = ''; placeholder.style.display = 'none'; };
-  img.onerror = () => { img.onerror = null; img.src = url; };
-  img.src = proxied;
-}
+// ─── Small helpers ───────────────────────────────────────────────────────────
 
-/**
- * Safe string field read from an opaque Record — mirrors Bambuddy's own
- * pickString() helper in MakerworldPage.tsx.
- */
 function pickStr(obj, key) {
-  if (!obj) return '';
-  const v = obj[key];
+  const v = obj?.[key];
   return typeof v === 'string' ? v : '';
 }
 
 function pickNum(obj, key) {
-  if (!obj) return null;
-  const v = obj[key];
+  const v = obj?.[key];
   return typeof v === 'number' ? v : null;
 }
 
-// ─── Profile card helpers ─────────────────────────────────────────────────────
-
-/** Format seconds into "Xh Ym" or "Ym" */
 function formatTime(secs) {
   if (!secs || secs < 60) return null;
   const h = Math.floor(secs / 3600);
@@ -119,83 +81,26 @@ function formatTime(secs) {
   return `${m}m`;
 }
 
-/** Render a 1-5 rating as filled/empty stars */
-function starsHtml(rating) {
-  if (rating == null) return '';
-  const n = Math.round(Math.min(5, Math.max(0, rating)));
-  return '★'.repeat(n) + '☆'.repeat(5 - n);
+function proxied(coverUrl, width) {
+  const sized = thumbUrl(coverUrl, width);
+  return `${session.bambuddyUrl}/api/v1/makerworld/thumbnail?url=${encodeURIComponent(sized)}`;
 }
 
-/**
- * Build the chip descriptors for one instance.
- *
- * `inst`       — hit from /design/{id}/instances (has compatibility merged in,
- *                but detail is all-zeros in practice)
- * `designInst` — matching entry from data.design.instances (the /design/{id}
- *                response), which has the real flat fields:
- *                  prediction, materialCnt, needAms, isDefault,
- *                  ratingScoreTotal, ratingCount,
- *                  extention.modelInfo.plates[]
- *
- * We try `designInst` first, then `inst` as a fallback.
- */
-/**
- * @param {object}      src    — design instance (has prediction, materialCnt, etc.)
- * @param {object|null} compat — compatibility object { devProductName, nozzleDiameter }
- */
-function buildChips(src, compat = null) {
-  const chips = [];
-
-  // ── Print time ────────────────────────────────────────────────────────────
-  // src.prediction is the total time for all plates (seconds).
-  const totalSecs = pickNum(src, 'prediction') ?? 0;
-  const timeStr   = formatTime(totalSecs);
-  if (timeStr) chips.push({ icon: 'clock', label: timeStr });
-
-  // ── Plate count ───────────────────────────────────────────────────────────
-  // extention.modelInfo.plates[] is the authoritative source; its length is the
-  // number of individual print plates in this profile's 3MF.
-  const mi        = src?.['extention']?.['modelInfo'] ?? {};
-  const platesArr = Array.isArray(mi['plates']) ? mi['plates'] : null;
-  const plateCount = platesArr !== null
-    ? platesArr.length
-    : (pickNum(src, 'plateCount') ?? pickNum(src, 'totalPlate'));
-
-  if (plateCount != null && plateCount > 1) {
-    chips.push({ icon: 'layers', label: `${plateCount} plates` });
+function setThumbnail(url) {
+  const img = $('model-thumb');
+  const placeholder = $('model-thumb-placeholder');
+  if (!url) {
+    img.style.display = 'none';
+    placeholder.style.display = '';
+    return;
   }
-
-  // ── Filament / colour count ───────────────────────────────────────────────
-  const mats = pickNum(src, 'materialCnt');
-  if (mats != null && mats > 0) {
-    chips.push({ icon: 'droplet', label: mats === 1 ? '1 color' : `${mats} colors` });
-  }
-
-  // ── AMS requirement ───────────────────────────────────────────────────────
-  if (src?.['needAms'] === true) chips.push({ icon: 'layers', label: 'AMS', className: 'ams' });
-
-  // ── Rating (0–5) ──────────────────────────────────────────────────────────
-  const rTotal = pickNum(src, 'ratingScoreTotal');
-  const rCount = pickNum(src, 'ratingCount');
-  const rating = (rTotal != null && rCount != null && rCount > 0)
-    ? rTotal / rCount
-    : pickNum(src, 'rating');
-  if (rating != null && rating > 0 && rating <= 5) {
-    chips.push({ icon: 'star', label: rating.toFixed(1), className: 'stars' });
-  }
-
-  // ── Primary printer ───────────────────────────────────────────────────────
-  // `compat` is passed in from the caller (either the merged top-level field
-  // from the instances-list hit, or extention.modelInfo.compatibility).
-  const printer = typeof compat === 'object' && compat !== null
-    ? (compat['devProductName'] ?? null)
-    : null;
-  if (printer) chips.push({ icon: 'printer', label: printer });
-
-  return chips;
+  img.onload  = () => { img.style.display = ''; placeholder.style.display = 'none'; };
+  img.onerror = () => { img.onerror = null; img.src = thumbUrl(url, 720); };
+  img.src = proxied(url, 720);
 }
 
-/** SVG path data for mini chip icons */
+// ─── Chips ───────────────────────────────────────────────────────────────────
+
 const CHIP_ICONS = {
   clock:   '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
   layers:  '<polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>',
@@ -205,42 +110,71 @@ const CHIP_ICONS = {
 };
 
 /**
- * Build a single profile card DOM element.
- * @param {{ value: string, name: string, cover: string, chips: object[] }} opts
+ * @param {object}      src    — design instance (prediction, materialCnt, needAms, …)
+ * @param {object|null} compat — compatibility object { devProductName, nozzleDiameter }
  */
-function buildProfileCard({ value, name, cover, chips }) {
+function buildChips(src, compat = null) {
+  const chips = [];
+
+  const timeStr = formatTime(pickNum(src, 'prediction') ?? 0);
+  if (timeStr) chips.push({ icon: 'clock', label: timeStr });
+
+  const mi = src?.extention?.modelInfo ?? {};
+  const platesArr = Array.isArray(mi.plates) ? mi.plates : null;
+  const plateCount = platesArr !== null
+    ? platesArr.length
+    : (pickNum(src, 'plateCount') ?? pickNum(src, 'totalPlate'));
+  if (plateCount != null && plateCount > 1) chips.push({ icon: 'layers', label: `${plateCount} plates` });
+
+  const mats = pickNum(src, 'materialCnt');
+  if (mats != null && mats > 0) chips.push({ icon: 'droplet', label: mats === 1 ? '1 color' : `${mats} colors` });
+
+  if (src?.needAms === true) chips.push({ icon: 'layers', label: 'AMS', className: 'ams' });
+
+  const rTotal = pickNum(src, 'ratingScoreTotal');
+  const rCount = pickNum(src, 'ratingCount');
+  const rating = (rTotal != null && rCount != null && rCount > 0) ? rTotal / rCount : pickNum(src, 'rating');
+  if (rating != null && rating > 0 && rating <= 5) chips.push({ icon: 'star', label: rating.toFixed(1), className: 'stars' });
+
+  const printer = compat && typeof compat === 'object' ? (compat.devProductName ?? null) : null;
+  if (printer) chips.push({ icon: 'printer', label: printer });
+
+  return chips;
+}
+
+// ─── Profile cards ───────────────────────────────────────────────────────────
+
+const STATUS_ICONS = {
+  running: '<span class="spinner small"></span>',
+  done:    '<svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>',
+  exists:  '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>',
+  error:   '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>'
+};
+
+function buildProfileCard({ profileId, name, cover, chips }) {
   const card = document.createElement('div');
   card.className = 'profile-card';
-  card.dataset.value = value;
-  card.dataset.cover = cover;
+  card.dataset.profileId = String(profileId);
 
-  // Thumbnail
   const thumbWrap = document.createElement('div');
   thumbWrap.className = 'pc-thumb-wrap';
-
   if (cover) {
     const img = document.createElement('img');
     img.alt = '';
     img.loading = 'lazy';
-    // Proxy through Bambuddy thumbnail endpoint
-    img.src = `${session.bambuddyUrl}/api/v1/makerworld/thumbnail?url=${encodeURIComponent(cover)}`;
-    img.onerror = () => { img.onerror = null; img.src = cover; };
+    img.src = proxied(cover, 200);
+    img.onerror = () => { img.onerror = null; img.src = thumbUrl(cover, 200); };
     thumbWrap.appendChild(img);
   } else {
     thumbWrap.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
       stroke-linecap="round" stroke-linejoin="round">
-      <rect x="3" y="3" width="18" height="18" rx="2"/>
-      <circle cx="8.5" cy="8.5" r="1.5"/>
-      <polyline points="21 15 16 10 5 21"/>
-    </svg>`;
+      <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>
+      <polyline points="21 15 16 10 5 21"/></svg>`;
   }
-
   card.appendChild(thumbWrap);
 
-  // Body
   const body = document.createElement('div');
   body.className = 'pc-body';
-
   const nameEl = document.createElement('div');
   nameEl.className = 'pc-name';
   nameEl.textContent = name;
@@ -252,17 +186,18 @@ function buildProfileCard({ value, name, cover, chips }) {
     for (const chip of chips) {
       const span = document.createElement('span');
       span.className = `pc-chip${chip.className ? ' ' + chip.className : ''}`;
-      const iconPath = CHIP_ICONS[chip.icon] ?? '';
       span.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${iconPath}</svg>${chip.label}`;
+        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${CHIP_ICONS[chip.icon] ?? ''}</svg>${chip.label}`;
       meta.appendChild(span);
     }
     body.appendChild(meta);
   }
 
+  const statusEl = document.createElement('div');
+  statusEl.className = 'pc-status';
+  body.appendChild(statusEl);
   card.appendChild(body);
 
-  // Selection checkmark
   const check = document.createElement('div');
   check.className = 'pc-check';
   check.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -272,277 +207,320 @@ function buildProfileCard({ value, name, cover, chips }) {
   return card;
 }
 
-/** Mark a card as selected, update session state and main thumbnail. */
-function selectProfileCard(cardEl, value, coverUrl) {
-  document.querySelectorAll('#profile-list .profile-card').forEach(c => c.classList.remove('selected'));
-  cardEl.classList.add('selected');
-  session.selectedValue = value;
-  setThumbnail(coverUrl || '');
+function setSelected(profileId, on) {
+  const card = session.cards.get(profileId);
+  if (!card) return;
+  if (on) session.selected.add(profileId); else session.selected.delete(profileId);
+  card.el.classList.toggle('selected', on);
 }
 
-/**
- * @param {string}      tabUrl       — full URL of the MakerWorld tab (may include #profileId-…)
- * @param {number|null} pageProfileId — profile ID reported by the content script (highest priority)
- */
-async function runResolve(tabUrl, pageProfileId = null) {
-  showOnly('loading');
+function toggleSelected(profileId) {
+  setSelected(profileId, !session.selected.has(profileId));
+  refreshSelection();
+}
 
-  let data;
-  try {
-    data = await sendToBackground({ action: 'resolve', url: tabUrl });
-  } catch (err) {
-    if (err.message === 'UNCONFIGURED') {
-      showOnly('unconfigured');
-      return;
-    }
-    showOnly('error');
-    $('error-detail').textContent = err.message;
-    return;
-  }
+function refreshSelection() {
+  const n = session.selected.size;
+  const total = session.cards.size;
+  $('sel-count').textContent = total > 1 ? `${n}/${total}` : '';
 
-  session.resolveData = data;
+  const btn = $('btn-import');
+  const running = session.job?.status === 'running';
+  btn.disabled = running || n === 0;
+  $('btn-import-text').textContent =
+    n === 0 ? 'Select a plate' : n === 1 ? 'Import 1 plate' : `Import ${n} plates`;
 
-  // ── Title ─────────────────────────────────────────────────────────────────
-  // design is passed through verbatim from Bambu Lab's design-service response.
+  // Show the first selected card's cover as the hero thumbnail.
+  const first = [...session.selected].map(id => session.cards.get(id)).find(c => c?.cover);
+  const designCover = pickStr(session.resolveData?.design, 'coverUrl') || pickStr(session.resolveData?.design, 'cover_url');
+  setThumbnail(first?.cover || designCover);
+}
+
+function renderCards(data, hintedProfileId) {
+  const list = $('profile-list');
+  list.innerHTML = '';
+  session.cards.clear();
+  session.selected.clear();
+
   const design = data.design ?? {};
-  $('model-title').textContent = pickStr(design, 'title') || 'Untitled Model';
+  const designCover = pickStr(design, 'coverUrl') || pickStr(design, 'cover_url');
+  const designInstances = design.instances ?? [];
 
-  // ── Thumbnail ─────────────────────────────────────────────────────────────
-  const { bambuddyUrl } = await new Promise(res =>
-    chrome.storage.local.get('bambuddyUrl', res)
-  );
-  session.bambuddyUrl = (bambuddyUrl ?? '').replace(/\/+$/, '');
-
-  const designCoverUrl = pickStr(design, 'coverUrl') || pickStr(design, 'cover_url');
-  setThumbnail(designCoverUrl);
-
-  // ── Instances (print profiles / plates) ───────────────────────────────────
-  // instances[] is passed through verbatim from MakerWorld's API.
-  // Fields documented in Bambuddy MakerworldPage.tsx:
-  //   id, profileId, title, cover, materialCnt, needAms, downloadCount,
-  //   compatibility { devProductName }, otherCompatibility[]
-  // Additional fields present but not displayed by Bambuddy's own UI:
-  //   printTime (seconds?), plateCount / totalPlate, rating / likeCount
-  // data.design.instances[] — from /design/{id} — is the authoritative source:
-  //   • Canonical display order (matches MakerWorld's own profile list ordering)
-  //   • Full per-profile data: prediction, materialCnt, needAms, isDefault,
-  //     ratingScoreTotal, ratingCount, extention.modelInfo.plates[], etc.
-  //
-  // data.instances (from /design/{id}/instances hits) has a zeroed-out detail
-  // sub-object and potentially different ordering, but carries the top-level
-  // `compatibility` / `otherCompatibility` fields that Bambuddy merges in.
-  // Build a map so we can grab that merged compat for any card that needs it.
-  const designInstances = data.design?.['instances'] ?? [];
+  // /design/{id}/instances hits carry the merged `compatibility` field.
   const instHitById = new Map();
   for (const hit of (data.instances ?? [])) {
     const iid = pickNum(hit, 'id');
     if (iid != null) instHitById.set(iid, hit);
   }
 
-  // Determine which profile to pre-select, in priority order:
-  //   1. pageProfileId — direct from the content script (DOM / live hash).
-  //      This works even when MakerWorld hasn't updated the URL hash yet
-  //      (e.g. the first/default profile on initial page load).
-  //   2. data.profile_id — extracted by Bambuddy from the URL's #profileId-…
-  //      fragment. Reliable once the user has clicked a different profile.
-  //   3. URL hash parsed locally as a last-resort fallback.
-  const urlHashMatch = tabUrl.match(/#profileId[-=](\d+)/i);
-  const urlHashProfileId = urlHashMatch ? parseInt(urlHashMatch[1], 10) : null;
-  const hintedProfileId = pageProfileId ?? data.profile_id ?? urlHashProfileId;
-
-  const list = $('profile-list');
-  list.innerHTML = '';
-  session.selectedValue = null;
-
   if (designInstances.length === 0) {
-    // Fallback when the design has no instances (very rare)
-    const card = buildProfileCard({
-      value: `${data.model_id ?? ''}:${data.model_id ?? ''}`,
-      name:  pickStr(design, 'title') || 'Default plate',
-      cover: designCoverUrl,
-      chips: []
-    });
+    const profileId = data.model_id ?? 0;
+    const card = buildProfileCard({ profileId, name: pickStr(design, 'title') || 'Default plate', cover: designCover, chips: [] });
     list.appendChild(card);
-    selectProfileCard(card, `${data.model_id ?? ''}:${data.model_id ?? ''}`, designCoverUrl);
-  } else {
-    for (const designInst of designInstances) {
-      const instanceId = pickNum(designInst, 'id');
-      const profileId  = pickNum(designInst, 'profileId');
-      if (instanceId === null || profileId === null) continue;
-
-      // Prefer the merged top-level compat from the instances-list hit;
-      // fall back to extention.modelInfo.compatibility from the design instance.
-      const hit    = instHitById.get(instanceId);
-      const compat = hit?.['compatibility']
-                  ?? designInst?.['extention']?.['modelInfo']?.['compatibility']
-                  ?? null;
-
-      const value = `${instanceId}:${profileId}`;
-      const name  = pickStr(designInst, 'title') || `Profile ${profileId}`;
-      const cover = pickStr(designInst, 'cover');
-      const chips = buildChips(designInst, compat);
-
-      const card = buildProfileCard({ value, name, cover, chips });
-      list.appendChild(card);
-
-      card.addEventListener('click', () => {
-        selectProfileCard(card, value, cover || designCoverUrl);
-      });
-
-      // Pre-select logic (highest priority first):
-      //   1. profileId matches the hint from URL / content script
-      //   2. isDefault === true  (MakerWorld's own default-profile marker)
-      //   3. First card after the loop (last-resort fallback)
-      const isDefault = designInst['isDefault'] === true;
-      const matchHint = hintedProfileId !== null && profileId === hintedProfileId;
-      const matchDef  = hintedProfileId === null && isDefault && session.selectedValue === null;
-
-      if (matchHint || matchDef) {
-        selectProfileCard(card, value, cover || designCoverUrl);
-      }
-    }
-
-    // If nothing matched, select the first card — this matches MakerWorld's own
-    // behaviour when there is no URL hint and no isDefault marker.
-    if (session.selectedValue === null) {
-      const first = list.querySelector('.profile-card');
-      if (first) first.click();
-    }
-  }
-
-  showOnly('model');
-}
-
-// ─── Import flow ─────────────────────────────────────────────────────────────
-
-async function runImport() {
-  const data = session.resolveData;
-  if (!data) return;
-
-  const [instanceIdStr, profileIdStr] = (session.selectedValue ?? ':').split(':');
-  const instanceId = parseInt(instanceIdStr, 10);
-  const profileId  = parseInt(profileIdStr,  10);
-  const modelId    = data.model_id;
-
-  if (!modelId || isNaN(instanceId) || isNaN(profileId)) {
-    showResult('error', 'Could not determine model or instance ID. Try re-opening the popup.');
+    session.cards.set(profileId, { el: card, instanceId: data.model_id ?? null, name: card.querySelector('.pc-name').textContent, cover: designCover });
+    card.addEventListener('click', () => toggleSelected(profileId));
+    setSelected(profileId, true);
+    refreshSelection();
     return;
   }
 
-  const btn = $('btn-import');
-  btn.classList.add('loading');
-  btn.disabled = true;
-  $('result-banner').style.display = 'none';
+  let defaultProfileId = null;
+  for (const inst of designInstances) {
+    const instanceId = pickNum(inst, 'id');
+    const profileId  = pickNum(inst, 'profileId');
+    if (instanceId === null || profileId === null) continue;
 
-  // Load behaviour prefs
-  const prefs = await new Promise(res =>
-    chrome.storage.local.get(['autoClose', 'autoCloseDelay', 'showOpenBtn'], res)
-  );
-  const autoClose    = prefs.autoClose       ?? false;
-  const closeDelay   = (prefs.autoCloseDelay ?? 3) * 1000;
-  const showOpenBtn  = prefs.showOpenBtn     ?? true;
+    const compat = instHitById.get(instanceId)?.compatibility
+                ?? inst?.extention?.modelInfo?.compatibility
+                ?? null;
+    const name  = pickStr(inst, 'title') || `Profile ${profileId}`;
+    const cover = pickStr(inst, 'cover');
+    const card  = buildProfileCard({ profileId, name, cover, chips: buildChips(inst, compat) });
+    list.appendChild(card);
+    session.cards.set(profileId, { el: card, instanceId, name, cover });
+    card.addEventListener('click', () => toggleSelected(profileId));
 
+    if (inst.isDefault === true && defaultProfileId === null) defaultProfileId = profileId;
+  }
+
+  // Pre-select: URL/page hint → MakerWorld's isDefault → first card.
+  const initial = (hintedProfileId !== null && session.cards.has(hintedProfileId))
+    ? hintedProfileId
+    : (defaultProfileId ?? session.cards.keys().next().value);
+  if (initial != null) setSelected(initial, true);
+  refreshSelection();
+}
+
+// ─── Folder picker ───────────────────────────────────────────────────────────
+
+function renderFolders(tree, preferredId) {
+  const sel = $('folder-select');
+  sel.innerHTML = '';
+
+  const root = document.createElement('option');
+  root.value = '';
+  root.textContent = 'Default (MakerWorld)';
+  sel.appendChild(root);
+
+  for (const f of flattenFolders(tree)) {
+    const opt = document.createElement('option');
+    opt.value = String(f.id);
+    opt.textContent = `${'\u00a0\u00a0'.repeat(f.depth)}${f.depth ? '↳ ' : ''}${f.name}`;
+    opt.disabled = f.disabled;
+    sel.appendChild(opt);
+  }
+
+  if (preferredId != null && sel.querySelector(`option[value="${preferredId}"]`)) {
+    sel.value = String(preferredId);
+  }
+}
+
+function selectedFolderId() {
+  const v = $('folder-select').value;
+  return v === '' ? null : parseInt(v, 10);
+}
+
+async function loadFolders({ force = false, preferredId } = {}) {
   try {
-    const result = await sendToBackground({
-      action:      'import',
-      model_id:    modelId,
-      instance_id: instanceId,
-      profile_id:  profileId
-    });
-
-    if (result.was_existing) {
-      showResult('info', 'This plate is already in your library.');
-    } else {
-      const filename = result.filename ? ` — ${result.filename}` : '';
-      showResult('success', `Saved to your Bambuddy library${filename}.`);
-    }
-
-    // "Open in Bambuddy" deep-link to /files?folder=N
-    if (showOpenBtn) {
-      const folderParam = result.folder_id != null ? `?folder=${result.folder_id}` : '';
-      const link = $('btn-open-bambuddy');
-      link.href = `${session.bambuddyUrl}/files${folderParam}`;
-      link.style.display = 'flex';
-    }
-
-    // Auto-close
-    if (autoClose) {
-      setTimeout(() => window.close(), closeDelay);
-    }
+    const tree = await sendToBackground({ action: 'listFolders', force });
+    renderFolders(tree, preferredId ?? session.settings?.[STORAGE_KEYS.LAST_FOLDER_ID]);
   } catch (err) {
-    const msg = err.message ?? 'Import failed';
-    if (msg.toLowerCase().includes('already')) {
-      showResult('info', 'This plate is already in your library.');
-    } else {
-      showResult('error', msg);
-    }
+    console.warn('[bambuddy] folders unavailable:', err.message);
+  }
+}
+
+function showNewFolderRow(show) {
+  $('new-folder-row').style.display = show ? '' : 'none';
+  if (show) { $('new-folder-name').value = ''; $('new-folder-name').focus(); }
+}
+
+async function createFolder() {
+  const name = $('new-folder-name').value.trim();
+  if (!name) { $('new-folder-name').focus(); return; }
+
+  const btn = $('btn-create-folder');
+  btn.disabled = true;
+  try {
+    const folder = await sendToBackground({ action: 'createFolder', name, parentId: selectedFolderId() });
+    await loadFolders({ force: true, preferredId: folder.id });
+    await chrome.storage.local.set({ [STORAGE_KEYS.LAST_FOLDER_ID]: folder.id });
+    showNewFolderRow(false);
+  } catch (err) {
+    showResult('error', `Could not create folder: ${err.message}`);
   } finally {
-    btn.classList.remove('loading');
     btn.disabled = false;
   }
 }
 
-// ─── Boot ────────────────────────────────────────────────────────────────────
+// ─── Job rendering ───────────────────────────────────────────────────────────
 
-async function init() {
-  $('btn-settings').addEventListener('click', () => chrome.runtime.openOptionsPage());
-  $('btn-go-settings').addEventListener('click', () => chrome.runtime.openOptionsPage());
-  $('btn-import').addEventListener('click', runImport);
-  $('btn-retry').addEventListener('click', boot);
+function applyJob(job) {
+  session.job = job;
+  const progress = $('job-progress');
+  const openBtn  = $('btn-open-bambuddy');
 
-  await boot();
+  if (!job) {
+    progress.style.display = 'none';
+    openBtn.style.display = 'none';
+    for (const c of session.cards.values()) {
+      c.el.classList.remove('busy');
+      c.el.querySelector('.pc-status').innerHTML = '';
+      c.el.querySelector('.pc-status').className = 'pc-status';
+    }
+    refreshSelection();
+    return;
+  }
+
+  for (const item of job.items) {
+    const c = session.cards.get(item.profileId);
+    if (!c) continue;
+    const st = c.el.querySelector('.pc-status');
+    st.className = `pc-status ${item.status}`;
+    st.innerHTML = STATUS_ICONS[item.status] ?? '';
+    if (item.status === 'done')   st.insertAdjacentText('beforeend', item.filename ? ` ${item.filename}` : ' Imported');
+    if (item.status === 'exists') st.insertAdjacentText('beforeend', ' Already in library');
+    if (item.status === 'error')  st.insertAdjacentText('beforeend', ` ${item.error ?? 'Failed'}`);
+    if (item.status === 'running') st.insertAdjacentText('beforeend', ' Importing…');
+    c.el.classList.toggle('busy', job.status === 'running');
+  }
+
+  const finished = job.items.filter(i => i.status !== 'pending' && i.status !== 'running').length;
+  const total = job.items.length;
+
+  if (job.status === 'running') {
+    progress.style.display = '';
+    $('job-bar-fill').style.width = `${Math.round((finished / total) * 100)}%`;
+    $('job-progress-text').textContent = `Importing ${finished}/${total}…`;
+    hideResult();
+    openBtn.style.display = 'none';
+  } else {
+    progress.style.display = 'none';
+    const done   = job.items.filter(i => i.status === 'done').length;
+    const exists = job.items.filter(i => i.status === 'exists').length;
+    const errors = job.items.filter(i => i.status === 'error').length;
+    const parts = [];
+    if (done)   parts.push(`${done} imported`);
+    if (exists) parts.push(`${exists} already in library`);
+    if (errors) parts.push(`${errors} failed`);
+    showResult(errors ? (done || exists ? 'info' : 'error') : (done ? 'success' : 'info'), parts.join(', ') + '.');
+
+    if (job.openUrl && session.settings?.[STORAGE_KEYS.SHOW_OPEN_BTN] !== false) {
+      openBtn.href = job.openUrl;
+      openBtn.style.display = 'flex';
+    }
+  }
+
+  refreshSelection();
 }
 
-/**
- * Ask the content script (content.js) for the profileId currently active on
- * the MakerWorld page.  This is more reliable than `tab.url` alone because:
- *   - On initial page load MakerWorld does NOT add #profileId-XXXXX to the URL
- *     for the first/default profile.
- *   - The content script runs inside the page and reads window.location.hash
- *     (always current) and can also inspect the DOM.
- *
- * Returns null if the content script is not ready or can't determine the ID.
- */
+async function runImport() {
+  if (!session.resolveData || session.selected.size === 0) return;
+
+  const items = [...session.selected].map(profileId => {
+    const c = session.cards.get(profileId);
+    return { profileId, instanceId: c.instanceId, name: c.name };
+  });
+  const folderId = selectedFolderId();
+  await chrome.storage.local.set({ [STORAGE_KEYS.LAST_FOLDER_ID]: folderId });
+
+  hideResult();
+  $('btn-import').disabled = true;
+  try {
+    const job = await sendToBackground({
+      action:  'startImport',
+      modelId: session.modelId,
+      title:   $('model-title').textContent,
+      folderId,
+      items,
+      tabId:   session.tabId
+    });
+    applyJob(job);
+  } catch (err) {
+    showResult('error', err.message ?? 'Import failed');
+    refreshSelection();
+  }
+}
+
+// Mirror job state written by the background worker.
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area !== 'session' || session.modelId === null) return;
+  const key = `${SESSION.JOB}${session.modelId}`;
+  if (key in changes) applyJob(changes[key].newValue ?? null);
+});
+
+// ─── Boot ────────────────────────────────────────────────────────────────────
+
 async function getActiveProfileIdFromPage(tabId) {
   try {
     const response = await chrome.tabs.sendMessage(tabId, { action: 'getSelectedProfile' });
-    return (typeof response?.profileId === 'number') ? response.profileId : null;
+    return typeof response?.profileId === 'number' ? response.profileId : null;
   } catch {
-    // Content script not injected yet, tab not accessible, or extension context
-    // is invalid — none of these are fatal; fall back to URL-based detection.
     return null;
   }
 }
 
 async function boot() {
   showOnly('loading');
+  hideResult();
 
-  // 1. Check configuration
-  const { bambuddyUrl } = await new Promise(res =>
-    chrome.storage.local.get('bambuddyUrl', res)
-  );
-  if (!bambuddyUrl) {
-    showOnly('unconfigured');
-    return;
-  }
+  session.settings = await getSettings();
+  session.bambuddyUrl = (session.settings[STORAGE_KEYS.BAMBUDDY_URL] ?? '').replace(/\/+$/, '');
+  if (!session.bambuddyUrl) { showOnly('unconfigured'); return; }
 
-  // 2. Check current tab
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   const url = tab?.url ?? '';
-  if (!url.includes('makerworld.com')) {
-    showOnly('wrongPage');
+  const modelId = modelIdFromUrl(url);
+  if (modelId === null) { showOnly('wrongPage'); return; }
+
+  session.tabId   = tab.id;
+  session.tabUrl  = url;
+  session.modelId = modelId;
+  $('header-subtitle').textContent = new URL(url).hostname;
+
+  // Everything independent runs at once; the resolve is usually already
+  // cached by the background prefetch that fired when the tab loaded.
+  const [resolveResult, pageProfileId, job] = await Promise.all([
+    sendToBackground({ action: 'resolve', url }).then(d => ({ ok: true, d }), e => ({ ok: false, e })),
+    getActiveProfileIdFromPage(tab.id),
+    sendToBackground({ action: 'getJob', modelId }).catch(() => null),
+    loadFolders()
+  ]);
+
+  if (!resolveResult.ok) {
+    if (resolveResult.e.message === 'UNCONFIGURED') { showOnly('unconfigured'); return; }
+    showOnly('error');
+    $('error-detail').textContent = resolveResult.e.message;
     return;
   }
 
-  // 3. Update subtitle
-  $('header-subtitle').textContent = new URL(url).hostname;
+  const data = resolveResult.d;
+  session.resolveData = data;
+  $('model-title').textContent = pickStr(data.design, 'title') || 'Untitled Model';
 
-  // 4. Ask the content script for the active profile BEFORE calling resolve
-  //    so we can use it to pre-select the card after the resolve returns.
-  const pageProfileId = await getActiveProfileIdFromPage(tab.id);
+  const hinted = pageProfileId ?? data.profile_id ?? profileIdFromHash(url);
+  renderCards(data, hinted);
+  applyJob(job);
+  showOnly('model');
+}
 
-  // 5. Resolve
-  await runResolve(url, pageProfileId);
+function init() {
+  $('btn-settings').addEventListener('click', () => chrome.runtime.openOptionsPage());
+  $('btn-go-settings').addEventListener('click', () => chrome.runtime.openOptionsPage());
+  $('btn-import').addEventListener('click', runImport);
+  $('btn-retry').addEventListener('click', boot);
+  $('btn-select-all').addEventListener('click', () => { for (const id of session.cards.keys()) setSelected(id, true); refreshSelection(); });
+  $('btn-select-none').addEventListener('click', () => { for (const id of session.cards.keys()) setSelected(id, false); refreshSelection(); });
+  $('btn-new-folder').addEventListener('click', () => showNewFolderRow($('new-folder-row').style.display === 'none'));
+  $('btn-cancel-folder').addEventListener('click', () => showNewFolderRow(false));
+  $('btn-create-folder').addEventListener('click', createFolder);
+  $('new-folder-name').addEventListener('keydown', e => {
+    if (e.key === 'Enter') createFolder();
+    if (e.key === 'Escape') showNewFolderRow(false);
+  });
+  $('folder-select').addEventListener('change', () =>
+    chrome.storage.local.set({ [STORAGE_KEYS.LAST_FOLDER_ID]: selectedFolderId() })
+  );
+  boot();
 }
 
 document.addEventListener('DOMContentLoaded', init);

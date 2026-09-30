@@ -1,13 +1,14 @@
 {
   "manifest_version": 3,
-  "name": "Bambuddy MakerWorld Import",
-  "version": "1.0.0",
-  "description": "Send any MakerWorld print profile to your Bambuddy instance in one click.",
+  "name": "Bambuddy Browser Import",
+  "version": "2.0.0",
+  "description": "Import MakerWorld print profiles into your Bambuddy library — pick the plates, pick the folder, one click.",
 
   "permissions": [
     "storage",
     "activeTab",
-    "tabs"
+    "tabs",
+    "notifications"
   ],
   "host_permissions": [
     "https://makerworld.com/*"
@@ -20,10 +21,12 @@
     "default_popup": "popup.html",
     "default_icon": {
       "16":  "icons/icon16.png",
+      "32":  "icons/icon32.png",
       "48":  "icons/icon48.png",
+      "64":  "icons/icon64.png",
       "128": "icons/icon128.png"
     },
-    "default_title": "Send to Bambuddy"
+    "default_title": "Import into Bambuddy"
   },
 
   "options_page": "options.html",
@@ -37,12 +40,22 @@
   ],
 
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "background.js",
+    "scripts": ["shared.js", "background.js"]
+  },
+
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "bambuddy-browser-import@rojosinalma.github.io",
+      "strict_min_version": "128.0"
+    }
   },
 
   "icons": {
     "16":  "icons/icon16.png",
+    "32":  "icons/icon32.png",
     "48":  "icons/icon48.png",
+    "64":  "icons/icon64.png",
     "128": "icons/icon128.png"
   }
 }

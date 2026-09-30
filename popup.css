@@ -40,18 +40,8 @@ body {
   gap: 8px;
 }
 
-.header-logo {
-  width: 24px;
-  height: 24px;
-  border-radius: 6px;
-  background: var(--green);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.header-logo svg { width: 14px; height: 14px; fill: #fff; }
+.header-logo { width: 24px; height: 24px; flex-shrink: 0; }
+.header-logo img { width: 24px; height: 24px; display: block; border-radius: 6px; }
 
 .header-title {
   font-size: 13px;
@@ -400,3 +390,96 @@ body {
   overflow: hidden;
 }
 .skel-body { padding: 12px; }
+
+/* ── v2: multi-select header ─────────────────────────────────────────────── */
+.profile-section-head {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+.profile-section-head .profile-section-label { margin-bottom: 0; }
+.sel-count { color: var(--green); font-weight: 600; margin-left: 4px; text-transform: none; letter-spacing: 0; }
+.sel-actions { display: flex; gap: 4px; }
+
+.btn-mini {
+  background: var(--surface2);
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font: inherit;
+  font-size: 11px;
+  padding: 2px 8px;
+  cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.btn-mini:hover:not(:disabled) { background: var(--border); color: var(--text); }
+.btn-mini:disabled { opacity: .5; cursor: not-allowed; }
+.btn-mini.primary { background: var(--green); color: #fff; border-color: var(--green); }
+.btn-mini.primary:hover:not(:disabled) { background: var(--green-dk); }
+
+/* ── v2: per-card import status ──────────────────────────────────────────── */
+.pc-status { display: none; font-size: 11px; margin-top: 4px; align-items: center; gap: 5px; }
+.pc-status:not(:empty) { display: flex; }
+.pc-status svg { width: 12px; height: 12px; flex-shrink: 0; fill: none; stroke: currentColor; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+.pc-status.running { color: #60a9ff; }
+.pc-status.done    { color: #4ade80; }
+.pc-status.exists  { color: #60a9ff; }
+.pc-status.error   { color: #ff7070; word-break: break-word; }
+.profile-card.busy { pointer-events: none; opacity: .85; }
+.spinner.small { width: 11px; height: 11px; border-width: 2px; }
+
+/* ── v2: folder picker ───────────────────────────────────────────────────── */
+.folder-row {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+}
+.folder-label { display: flex; color: var(--muted); }
+.folder-label svg { width: 15px; height: 15px; }
+.folder-select {
+  flex: 1;
+  min-width: 0;
+  background: var(--surface2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  font: inherit;
+  font-size: 12px;
+  padding: 5px 8px;
+  cursor: pointer;
+}
+.folder-select:focus { outline: none; border-color: var(--green); }
+.new-folder-row {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+.new-folder-row input {
+  flex: 1;
+  min-width: 0;
+  background: var(--surface2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  font: inherit;
+  font-size: 12px;
+  padding: 5px 8px;
+}
+.new-folder-row input:focus { outline: none; border-color: var(--green); }
+
+/* ── v2: job progress ────────────────────────────────────────────────────── */
+.job-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.job-bar { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+.job-bar-fill { height: 100%; width: 0; background: var(--green); transition: width .3s; }

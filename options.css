@@ -35,17 +35,8 @@ body {
   margin-bottom: 32px;
 }
 
-.page-logo {
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  background: var(--green);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-.page-logo svg { width: 24px; height: 24px; fill: none; stroke: #fff; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.page-logo { width: 44px; height: 44px; flex-shrink: 0; }
+.page-logo img { width: 44px; height: 44px; display: block; border-radius: 12px; }
 
 .page-title    { font-size: 20px; font-weight: 700; letter-spacing: -.01em; }
 .page-subtitle { font-size: 13px; color: var(--muted); margin-top: 2px; }
@@ -218,20 +209,18 @@ input::placeholder { color: var(--muted); }
   background: #fff;
 }
 
-.delay-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 10px;
-  font-size: 13px;
-  color: var(--text);
-  padding-left: 2px;
-}
-.delay-row input[type="number"] {
-  width: 64px;
+.num-input {
+  width: 72px;
   text-align: center;
+  flex-shrink: 0;
+  background: var(--surface2, #252836);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  font: inherit;
   padding: 6px 8px;
 }
+.num-input:focus { outline: none; border-color: var(--green); }
 
 /* ── Help section ─────────────────────────────────────────────────────────── */
 .help-item {

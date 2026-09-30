@@ -3,14 +3,6 @@
  * Handles saving/loading settings and the test-connection flow.
  */
 
-const STORAGE_KEYS = {
-  BAMBUDDY_URL:     'bambuddyUrl',
-  API_KEY:          'apiKey',
-  AUTO_CLOSE:       'autoClose',
-  AUTO_CLOSE_DELAY: 'autoCloseDelay',
-  SHOW_OPEN_BTN:    'showOpenBtn'
-};
-
 // ─── DOM ─────────────────────────────────────────────────────────────────────
 
 const urlInput       = document.getElementById('bambuddy-url');
@@ -20,10 +12,10 @@ const btnTest        = document.getElementById('btn-test');
 const btnToggle      = document.getElementById('btn-toggle-key');
 const statusEl       = document.getElementById('conn-status');
 const versionEl      = document.getElementById('version-tag');
-const autoCloseChk   = document.getElementById('auto-close');
-const autoCloseDelay = document.getElementById('auto-close-delay');
-const delayRow       = document.getElementById('delay-row');
 const showOpenBtnChk = document.getElementById('show-open-btn');
+const notifyChk      = document.getElementById('notify-complete');
+const concurrencyIn  = document.getElementById('concurrency');
+const resolveTtlIn   = document.getElementById('resolve-ttl');
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -44,43 +36,33 @@ function setStatus(type, html) {
 
 function clearStatus() { statusEl.style.display = 'none'; }
 
-function sendToBackground(message) {
-  return new Promise((resolve, reject) => {
-    chrome.runtime.sendMessage(message, response => {
-      if (chrome.runtime.lastError) {
-        reject(new Error(chrome.runtime.lastError.message));
-        return;
-      }
-      if (!response.success) {
-        reject(new Error(response.error ?? 'Unknown error'));
-        return;
-      }
-      resolve(response.data);
-    });
-  });
+async function sendToBackground(message) {
+  const response = await chrome.runtime.sendMessage(message);
+  if (!response) throw new Error(chrome.runtime.lastError?.message ?? 'No response from background');
+  if (!response.success) throw new Error(response.error ?? 'Unknown error');
+  return response.data;
 }
 
 // ─── Load saved settings ──────────────────────────────────────────────────────
 
 async function loadSettings() {
-  const stored = await new Promise(res =>
-    chrome.storage.local.get(Object.values(STORAGE_KEYS), res)
-  );
-  urlInput.value       = stored[STORAGE_KEYS.BAMBUDDY_URL]     ?? '';
-  keyInput.value       = stored[STORAGE_KEYS.API_KEY]          ?? '';
-  autoCloseChk.checked = stored[STORAGE_KEYS.AUTO_CLOSE]       ?? false;
-  autoCloseDelay.value = stored[STORAGE_KEYS.AUTO_CLOSE_DELAY] ?? 3;
-  showOpenBtnChk.checked = stored[STORAGE_KEYS.SHOW_OPEN_BTN]  ?? true;
-  delayRow.style.display = autoCloseChk.checked ? '' : 'none';
+  const s = await getSettings();
+  urlInput.value         = s[STORAGE_KEYS.BAMBUDDY_URL] ?? '';
+  keyInput.value         = s[STORAGE_KEYS.API_KEY] ?? '';
+  showOpenBtnChk.checked = s[STORAGE_KEYS.SHOW_OPEN_BTN];
+  notifyChk.checked      = s[STORAGE_KEYS.NOTIFY_ON_COMPLETE];
+  concurrencyIn.value    = s[STORAGE_KEYS.CONCURRENCY];
+  resolveTtlIn.value     = s[STORAGE_KEYS.RESOLVE_TTL];
+  concurrencyIn.min = LIMITS.CONCURRENCY.min; concurrencyIn.max = LIMITS.CONCURRENCY.max;
+  resolveTtlIn.min  = LIMITS.RESOLVE_TTL.min;  resolveTtlIn.max  = LIMITS.RESOLVE_TTL.max;
 }
 
 // ─── Save ─────────────────────────────────────────────────────────────────────
 
 async function save() {
   clearStatus();
-  const url   = urlInput.value.trim().replace(/\/+$/, '');
-  const key   = keyInput.value.trim();
-  const delay = Math.min(30, Math.max(1, parseInt(autoCloseDelay.value, 10) || 3));
+  const url = urlInput.value.trim().replace(/\/+$/, '');
+  const key = keyInput.value.trim();
 
   if (!url) {
     setStatus('error', 'Bambuddy URL is required.');
@@ -103,18 +85,14 @@ async function save() {
   const origin  = parsedUrl.origin;
   const pattern = `${origin}/*`;
 
-  const alreadyGranted = await new Promise(res =>
-    chrome.permissions.contains({ origins: [pattern] }, res)
-  );
+  const alreadyGranted = await chrome.permissions.contains({ origins: [pattern] });
 
   if (!alreadyGranted) {
     statusEl.className = 'status-bar info';
     statusEl.innerHTML = `<span class="spinner"></span><span>Requesting access to <code>${origin}</code>…</span>`;
     statusEl.style.display = 'flex';
 
-    const granted = await new Promise(res =>
-      chrome.permissions.request({ origins: [pattern] }, res)
-    );
+    const granted = await chrome.permissions.request({ origins: [pattern] });
 
     if (!granted) {
       setStatus('error',
@@ -125,15 +103,15 @@ async function save() {
     }
   }
 
-  await new Promise(res =>
-    chrome.storage.local.set({
-      [STORAGE_KEYS.BAMBUDDY_URL]:     url,
-      [STORAGE_KEYS.API_KEY]:          key,
-      [STORAGE_KEYS.AUTO_CLOSE]:       autoCloseChk.checked,
-      [STORAGE_KEYS.AUTO_CLOSE_DELAY]: delay,
-      [STORAGE_KEYS.SHOW_OPEN_BTN]:    showOpenBtnChk.checked
-    }, res)
-  );
+  await chrome.storage.local.set({
+    [STORAGE_KEYS.BAMBUDDY_URL]:       url,
+    [STORAGE_KEYS.API_KEY]:            key,
+    [STORAGE_KEYS.SHOW_OPEN_BTN]:      showOpenBtnChk.checked,
+    [STORAGE_KEYS.NOTIFY_ON_COMPLETE]: notifyChk.checked,
+    [STORAGE_KEYS.CONCURRENCY]:        clamp(concurrencyIn.value, LIMITS.CONCURRENCY, DEFAULTS[STORAGE_KEYS.CONCURRENCY]),
+    [STORAGE_KEYS.RESOLVE_TTL]:        clamp(resolveTtlIn.value, LIMITS.RESOLVE_TTL, DEFAULTS[STORAGE_KEYS.RESOLVE_TTL])
+  });
+  await chrome.storage.session.clear();
 
   setStatus('success', `Settings saved. Access to <code>${origin}</code> granted.`);
 }
@@ -151,12 +129,10 @@ async function testConnection() {
   }
 
   // Temporarily store values for the background script to use
-  await new Promise(res =>
-    chrome.storage.local.set({
-      [STORAGE_KEYS.BAMBUDDY_URL]: url.replace(/\/+$/, ''),
-      [STORAGE_KEYS.API_KEY]:      key
-    }, res)
-  );
+  await chrome.storage.local.set({
+    [STORAGE_KEYS.BAMBUDDY_URL]: url.replace(/\/+$/, ''),
+    [STORAGE_KEYS.API_KEY]:      key
+  });
 
   statusEl.className = 'status-bar info';
   statusEl.innerHTML = `<span class="spinner"></span><span>Connecting to Bambuddy…</span>`;
@@ -225,9 +201,6 @@ function loadVersion() {
 btnSave.addEventListener('click', save);
 btnTest.addEventListener('click', testConnection);
 btnToggle.addEventListener('click', toggleKeyVisibility);
-autoCloseChk.addEventListener('change', () => {
-  delayRow.style.display = autoCloseChk.checked ? '' : 'none';
-});
 
 document.addEventListener('DOMContentLoaded', () => {
   loadSettings();
