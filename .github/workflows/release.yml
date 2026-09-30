@@ -27,6 +27,7 @@ jobs:
           echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
           echo "chrome_zip=$NAME-$VERSION-chrome.zip" >> "$GITHUB_OUTPUT"
           echo "firefox_xpi=$NAME-$VERSION-firefox.xpi" >> "$GITHUB_OUTPUT"
+          echo "chrome_crx=$NAME-$VERSION-chrome.crx" >> "$GITHUB_OUTPUT"
 
       - name: Skip if this version is already released
         id: exists
@@ -65,6 +66,21 @@ jobs:
           cd build/pkg
           zip -r -X "../${{ steps.meta.outputs.chrome_zip }}" .
 
+      # Signed with the Verified CRX Uploads key registered in the Chrome Web Store dashboard;
+      # this is the file to upload there. Skipped when the CWS_SIGNING_KEY secret is absent.
+      - name: Build signed Chrome crx
+        if: steps.exists.outputs.skip == 'false' && env.CWS_SIGNING_KEY != ''
+        env:
+          CWS_SIGNING_KEY: ${{ secrets.CWS_SIGNING_KEY }}
+        run: |
+          umask 077
+          printf '%s\n' "$CWS_SIGNING_KEY" > "$RUNNER_TEMP/cws.pem"
+          python3 scripts/build-crx.py \
+            --key "$RUNNER_TEMP/cws.pem" \
+            --zip "build/${{ steps.meta.outputs.chrome_zip }}" \
+            --out "build/${{ steps.meta.outputs.chrome_crx }}"
+          rm -f "$RUNNER_TEMP/cws.pem"
+
       - name: Build Firefox xpi (unsigned)
         if: steps.exists.outputs.skip == 'false'
         run: |
@@ -96,9 +112,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "${{ steps.meta.outputs.tag }}" \
-            "build/${{ steps.meta.outputs.chrome_zip }}" \
-            "build/${{ steps.meta.outputs.firefox_xpi }}" \
+            build/*.zip build/*.crx build/*.xpi \
             --title "${{ steps.meta.outputs.tag }}" \
             --generate-notes \
-            --notes "**Chrome / Chromium / Edge / Brave:** download the \`.zip\`, unzip, \`chrome://extensions\` → Developer mode → Load unpacked.
+            --notes "**Chrome / Chromium / Edge / Brave:** download the \`.zip\`, unzip, \`chrome://extensions\` → Developer mode → Load unpacked. The \`.crx\` is the store-upload package, signed with the project's Verified CRX Uploads key.
           **Firefox:** install from [addons.mozilla.org](https://addons.mozilla.org/firefox/addon/bambuddy-browser-import/) — the \`.xpi\` here is the unsigned source package (temporary install via \`about:debugging\` only)."

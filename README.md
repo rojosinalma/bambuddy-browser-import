@@ -12,6 +12,8 @@ Based on [wolfrage76/Bambuddy-Extension](https://github.com/wolfrage76/Bambuddy-
 - **Instant popup** — models are resolved the moment the page loads and cached; thumbnails are fetched at 200 px instead of full size (~8 KB instead of ~1.3 MB each)
 - **Open in Bambuddy** always lands in the folder the plates were saved to
 
+![Popup on a MakerWorld model page: profile cards with print time, colours, AMS and rating, folder picker and the import button](docs/screenshot.jpg)
+
 ---
 
 ## Installation
@@ -122,6 +124,7 @@ re-authenticate under **Settings → Bambu Cloud** in Bambuddy.
 ├── content.js          Runs on makerworld.com — reports the profile selected on the page
 ├── popup.html/js/css   Toolbar popup — cards, folder picker, progress
 ├── options.html/js/css Settings page
+├── scripts/build-crx.py Builds the signed .crx for Chrome Web Store uploads (CI)
 └── icons/              16 / 32 / 48 / 64 / 128 px, rendered from icons/src/icon.svg
 ```
 
