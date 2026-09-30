@@ -23,7 +23,7 @@ Fork of [wolfrage76/Bambuddy-Extension](https://github.com/wolfrage76/Bambuddy-E
 3. Click **Load unpacked** and select this folder
 4. Pin the icon via the puzzle-piece menu
 
-### Firefox (≥ 128)
+### Firefox (≥ 140)
 
 1. Open `about:debugging#/runtime/this-firefox`
 2. Click **Load Temporary Add-on…** and select `manifest.json`

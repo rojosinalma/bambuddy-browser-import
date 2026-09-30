@@ -1,0 +1,103 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  # Files that make up the extension. Everything else in the repo stays out of the packages.
+  PACKAGE_FILES: manifest.json shared.js background.js content.js popup.html popup.js popup.css options.html options.js options.css icons
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read version
+        id: meta
+        run: |
+          VERSION=$(jq -r .version manifest.json)
+          NAME=bambuddy-browser-import
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+          echo "chrome_zip=$NAME-$VERSION-chrome.zip" >> "$GITHUB_OUTPUT"
+          echo "firefox_xpi=$NAME-$VERSION-firefox.xpi" >> "$GITHUB_OUTPUT"
+
+      - name: Skip if this version is already released
+        id: exists
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "${{ steps.meta.outputs.tag }}" >/dev/null 2>&1; then
+            echo "::notice::Release ${{ steps.meta.outputs.tag }} already exists — bump manifest.json version to publish a new one."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-node@v4
+        if: steps.exists.outputs.skip == 'false'
+        with:
+          node-version: 22
+
+      - name: Syntax check
+        if: steps.exists.outputs.skip == 'false'
+        run: for f in *.js; do node --check "$f"; done
+
+      - name: Stage package
+        if: steps.exists.outputs.skip == 'false'
+        run: |
+          mkdir -p build/pkg
+          cp -r $PACKAGE_FILES build/pkg/
+
+      - name: Lint (web-ext)
+        if: steps.exists.outputs.skip == 'false'
+        run: npx --yes web-ext lint --source-dir build/pkg --warnings-as-errors=false
+
+      - name: Build Chrome zip
+        if: steps.exists.outputs.skip == 'false'
+        run: |
+          cd build/pkg
+          zip -r -X "../${{ steps.meta.outputs.chrome_zip }}" .
+
+      - name: Build Firefox xpi (unsigned)
+        if: steps.exists.outputs.skip == 'false'
+        run: |
+          cd build/pkg
+          zip -r -X "../${{ steps.meta.outputs.firefox_xpi }}" .
+
+      # Optional: sign with Mozilla so the .xpi installs permanently from any URL.
+      # Set AMO_JWT_ISSUER and AMO_JWT_SECRET (https://addons.mozilla.org/developers/addon/api/key/)
+      # as repository secrets; without them the unsigned .xpi above is published instead.
+      - name: Sign Firefox xpi
+        if: steps.exists.outputs.skip == 'false' && env.AMO_JWT_ISSUER != ''
+        env:
+          AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
+          AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+        run: |
+          npx --yes web-ext sign \
+            --source-dir build/pkg \
+            --artifacts-dir build/signed \
+            --channel unlisted \
+            --api-key "$AMO_JWT_ISSUER" \
+            --api-secret "$AMO_JWT_SECRET"
+          mv build/signed/*.xpi "build/${{ steps.meta.outputs.firefox_xpi }}"
+
+      - name: Create release
+        if: steps.exists.outputs.skip == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          SIGNED=$([ -d build/signed ] && echo "signed by Mozilla — installs directly" || echo "unsigned — load via about:debugging as a temporary add-on")
+          gh release create "${{ steps.meta.outputs.tag }}" \
+            "build/${{ steps.meta.outputs.chrome_zip }}" \
+            "build/${{ steps.meta.outputs.firefox_xpi }}" \
+            --title "${{ steps.meta.outputs.tag }}" \
+            --generate-notes \
+            --notes "**Chrome / Chromium / Edge / Brave:** download the \`.zip\`, unzip, \`chrome://extensions\` → Developer mode → Load unpacked.
+          **Firefox:** \`.xpi\` is $SIGNED."

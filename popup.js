@@ -187,7 +187,8 @@ function buildProfileCard({ profileId, name, cover, chips }) {
       const span = document.createElement('span');
       span.className = `pc-chip${chip.className ? ' ' + chip.className : ''}`;
       span.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${CHIP_ICONS[chip.icon] ?? ''}</svg>${chip.label}`;
+        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${CHIP_ICONS[chip.icon] ?? ''}</svg>`;
+      span.appendChild(document.createTextNode(chip.label));
       meta.appendChild(span);
     }
     body.appendChild(meta);

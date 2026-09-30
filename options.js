@@ -19,18 +19,49 @@ const resolveTtlIn   = document.getElementById('resolve-ttl');
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function setStatus(type, html) {
-  const iconMap = {
-    success: '<polyline points="20 6 9 17 4 12"/>',
-    error:   '<circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>',
-    info:    '<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>'
-  };
+const STATUS_ICONS = {
+  success: '<polyline points="20 6 9 17 4 12"/>',
+  error:   '<circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>',
+  info:    '<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>'
+};
+
+/**
+ * Render a status line. `parts` is a list of strings or { code: '…' } /
+ * { strong: '…' } fragments so dynamic text (URLs, server error messages)
+ * never passes through innerHTML.
+ */
+function setStatus(type, ...parts) {
   statusEl.className = `status-bar ${type}`;
-  statusEl.innerHTML = `
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-         stroke-linecap="round" stroke-linejoin="round">${iconMap[type] ?? ''}</svg>
-    <span>${html}</span>
-  `;
+  statusEl.replaceChildren();
+
+  if (type === 'busy') {
+    const spinner = document.createElement('span');
+    spinner.className = 'spinner';
+    statusEl.appendChild(spinner);
+    statusEl.classList.replace('busy', 'info');
+  } else {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('fill', 'none');
+    svg.setAttribute('stroke', 'currentColor');
+    svg.setAttribute('stroke-width', '2');
+    svg.setAttribute('stroke-linecap', 'round');
+    svg.setAttribute('stroke-linejoin', 'round');
+    svg.innerHTML = STATUS_ICONS[type] ?? '';
+    statusEl.appendChild(svg);
+  }
+
+  const span = document.createElement('span');
+  for (const part of parts) {
+    if (typeof part === 'string') {
+      span.appendChild(document.createTextNode(part));
+    } else if (part.code !== undefined) {
+      const el = document.createElement('code'); el.textContent = part.code; span.appendChild(el);
+    } else if (part.strong !== undefined) {
+      const el = document.createElement('strong'); el.textContent = part.strong; span.appendChild(el);
+    }
+  }
+  statusEl.appendChild(span);
   statusEl.style.display = 'flex';
 }
 
@@ -73,7 +104,7 @@ async function save() {
   let parsedUrl;
   try { parsedUrl = new URL(url); }
   catch {
-    setStatus('error', 'Enter a valid URL (e.g. <code>http://192.168.1.100:8000</code>).');
+    setStatus('error', 'Enter a valid URL (e.g. ', { code: 'http://192.168.1.100:8000' }, ').');
     urlInput.focus();
     return;
   }
@@ -88,17 +119,12 @@ async function save() {
   const alreadyGranted = await chrome.permissions.contains({ origins: [pattern] });
 
   if (!alreadyGranted) {
-    statusEl.className = 'status-bar info';
-    statusEl.innerHTML = `<span class="spinner"></span><span>Requesting access to <code>${origin}</code>…</span>`;
-    statusEl.style.display = 'flex';
+    setStatus('busy', 'Requesting access to ', { code: origin }, '…');
 
     const granted = await chrome.permissions.request({ origins: [pattern] });
 
     if (!granted) {
-      setStatus('error',
-        `Permission to access <code>${origin}</code> was denied. ` +
-        'The extension cannot connect to Bambuddy without it.'
-      );
+      setStatus('error', 'Permission to access ', { code: origin }, ' was denied. The extension cannot connect to Bambuddy without it.');
       return;
     }
   }
@@ -113,7 +139,7 @@ async function save() {
   });
   await chrome.storage.session.clear();
 
-  setStatus('success', `Settings saved. Access to <code>${origin}</code> granted.`);
+  setStatus('success', 'Settings saved. Access to ', { code: origin }, ' granted.');
 }
 
 // ─── Test connection ──────────────────────────────────────────────────────────
@@ -134,9 +160,7 @@ async function testConnection() {
     [STORAGE_KEYS.API_KEY]:      key
   });
 
-  statusEl.className = 'status-bar info';
-  statusEl.innerHTML = `<span class="spinner"></span><span>Connecting to Bambuddy…</span>`;
-  statusEl.style.display = 'flex';
+  setStatus('busy', 'Connecting to Bambuddy…');
   btnTest.disabled = true;
 
   try {
@@ -160,8 +184,8 @@ async function testConnection() {
     } else if (data.mw_error) {
       // MakerWorld status endpoint returned an error — likely missing permissions
       // or the feature isn't enabled. The core connection is still fine.
-      msg += ` API key valid. ⚠ MakerWorld status check failed: ${data.mw_error} — verify your key has <strong>Manage Library</strong> and <strong>Allow cloud access</strong>.`;
-      setStatus('info', msg);
+      setStatus('info', `${msg} API key valid. ⚠ MakerWorld status check failed: ${data.mw_error} — verify your key has `,
+        { strong: 'Manage Library' }, ' and ', { strong: 'Allow cloud access' }, '.');
     } else {
       setStatus('success', msg);
     }
