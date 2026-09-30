@@ -148,3 +148,4 @@ re-authenticate under **Settings → Bambu Cloud** in Bambuddy.
 ## License
 
 [MIT](LICENSE). Originally based on wolfrage76/Bambuddy-Extension.
+[Privacy Policy](PRIVACY.md) · [Terms of Service](TERMS.md)
