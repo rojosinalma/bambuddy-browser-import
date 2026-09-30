@@ -119,3 +119,36 @@ jobs:
             --generate-notes \
             --notes "**Chrome / Chromium / Edge / Brave:** download the \`.zip\`, unzip, \`chrome://extensions\` → Developer mode → Load unpacked. The \`.crx\` is the store-upload package, signed with the project's Verified CRX Uploads key — grab the \`.crx.zip\` if your browser blocks the bare file.
           **Firefox:** install from [addons.mozilla.org](https://addons.mozilla.org/firefox/addon/bambuddy-browser-import/) — the \`.xpi\` here is the unsigned source package (temporary install via \`about:debugging\` only)."
+
+      # Uploads the signed .crx to the Chrome Web Store item and submits it for review.
+      # Needs CWS_CLIENT_ID / CWS_CLIENT_SECRET / CWS_REFRESH_TOKEN; skipped when absent.
+      # Fails harmlessly (job still green) while the item is not yet published for the first time.
+      - name: Upload to Chrome Web Store
+        if: steps.exists.outputs.skip == 'false' && env.CWS_REFRESH_TOKEN != '' && env.CWS_SIGNING_KEY != ''
+        continue-on-error: true
+        env:
+          CWS_CLIENT_ID:     ${{ secrets.CWS_CLIENT_ID }}
+          CWS_CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
+          CWS_REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
+          CWS_SIGNING_KEY:   ${{ secrets.CWS_SIGNING_KEY }}
+          CWS_ITEM_ID:       kcffnknnapkmkabmkbghccgjfcgiobgb
+        run: |
+          TOKEN=$(curl -sf -X POST https://oauth2.googleapis.com/token \
+            -d client_id="$CWS_CLIENT_ID" -d client_secret="$CWS_CLIENT_SECRET" \
+            -d refresh_token="$CWS_REFRESH_TOKEN" -d grant_type=refresh_token | jq -r .access_token)
+          [ -n "$TOKEN" ] && [ "$TOKEN" != null ] || { echo "::error::could not obtain access token"; exit 1; }
+
+          CRX="build/${{ steps.meta.outputs.chrome_crx }}"
+          UPLOAD=$(curl -sf -X PUT \
+            -H "Authorization: Bearer $TOKEN" -H "x-goog-api-version: 2" \
+            -H "X-Goog-Upload-Protocol: raw" -H "X-Goog-Upload-File-Name: $(basename "$CRX")" \
+            --data-binary @"$CRX" \
+            "https://www.googleapis.com/upload/chromewebstore/v1.1/items/$CWS_ITEM_ID")
+          echo "upload: $UPLOAD"
+          [ "$(echo "$UPLOAD" | jq -r .uploadState)" = "SUCCESS" ] || { echo "::error::upload rejected"; exit 1; }
+
+          PUBLISH=$(curl -s -X POST -H "Authorization: Bearer $TOKEN" -H "x-goog-api-version: 2" -H "Content-Length: 0" \
+            "https://www.googleapis.com/chromewebstore/v1.1/items/$CWS_ITEM_ID/publish")
+          echo "publish: $PUBLISH"
+          echo "$PUBLISH" | jq -e '.status | index("OK") or index("ITEM_PENDING_REVIEW")' >/dev/null \
+            || { echo "::error::publish not accepted"; exit 1; }
