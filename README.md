@@ -139,3 +139,9 @@ re-authenticate under **Settings → Bambu Cloud** in Bambuddy.
 | "requires a Bambu Cloud login" | Key missing **Allow cloud access**, or the cloud token expired |
 | Profile list looks stale | Lower the model cache in Settings, or use **Try again** |
 | No completion notification | Enable it in Settings; check the browser's notification permission for extensions |
+
+---
+
+## License
+
+[MIT](LICENSE). Originally based on wolfrage76/Bambuddy-Extension.
