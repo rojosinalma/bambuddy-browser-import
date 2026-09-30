@@ -4,7 +4,7 @@ Import MakerWorld print profiles into your [Bambuddy](https://github.com/maziggy
 from the browser — pick the plates, pick the folder, one click. Works in Chrome and Firefox from the
 same codebase.
 
-Fork of [wolfrage76/Bambuddy-Extension](https://github.com/wolfrage76/Bambuddy-Extension) with:
+Based on [wolfrage76/Bambuddy-Extension](https://github.com/wolfrage76/Bambuddy-Extension), reworked with:
 
 - **Multi-select** — import one plate, a few, or all of them in one go
 - **Folder picker** — choose the target library folder (or create one) instead of always landing in `MakerWorld/`
