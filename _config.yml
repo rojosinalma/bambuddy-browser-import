@@ -1,0 +1,32 @@
+# GitHub Pages (https://bambuddy-import.rojo.dev) — serves the README as the home page
+# plus the privacy policy and terms; everything else in the repo is excluded.
+title: Bambuddy Browser Import
+description: Import MakerWorld print profiles into your self-hosted Bambuddy library, from Chrome or Firefox.
+remote_theme: pages-themes/minimal@v0.2.0
+plugins:
+  - jekyll-remote-theme
+logo: /icons/icon128.png
+show_downloads: false
+
+include:
+  - README.md
+  - PRIVACY.md
+  - TERMS.md
+  - LICENSE
+  - icons
+  - docs
+exclude:
+  - "*.js"
+  - "*.json"
+  - "*.html"
+  - "*.css"
+  - scripts
+  - AGENTS.md
+  - .github
+  - .openchamber
+
+defaults:
+  - scope:
+      path: ""
+    values:
+      layout: default
