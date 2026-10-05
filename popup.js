@@ -95,8 +95,8 @@ function setThumbnail(url) {
     return;
   }
   img.onload  = () => { img.style.display = ''; placeholder.style.display = 'none'; };
-  img.onerror = () => { img.onerror = null; img.src = thumbUrl(url, 720); };
-  img.src = proxied(url, 720);
+  img.onerror = () => { img.onerror = null; img.src = thumbUrl(url, 200); };
+  img.src = proxied(url, 200);
 }
 
 // ─── Chips ───────────────────────────────────────────────────────────────────
