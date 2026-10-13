@@ -332,7 +332,17 @@ async function loadFolders({ force = false, preferredId } = {}) {
 
 function showNewFolderRow(show) {
   $('new-folder-row').style.display = show ? '' : 'none';
-  if (show) { $('new-folder-name').value = ''; $('new-folder-name').focus(); }
+  if (show) {
+    $('new-folder-name').value = '';
+    $('new-folder-root').checked = false;
+    // Root is already implied when no folder is selected, so hide the toggle then
+    $('new-folder-root-label').style.display = selectedFolderId() === null ? 'none' : '';
+    $('new-folder-name').focus();
+  }
+}
+
+function newFolderParentId() {
+  return $('new-folder-root').checked ? null : selectedFolderId();
 }
 
 async function createFolder() {
@@ -342,7 +352,7 @@ async function createFolder() {
   const btn = $('btn-create-folder');
   btn.disabled = true;
   try {
-    const folder = await sendToBackground({ action: 'createFolder', name, parentId: selectedFolderId() });
+    const folder = await sendToBackground({ action: 'createFolder', name, parentId: newFolderParentId() });
     await loadFolders({ force: true, preferredId: folder.id });
     await chrome.storage.local.set({ [STORAGE_KEYS.LAST_FOLDER_ID]: folder.id });
     showNewFolderRow(false);

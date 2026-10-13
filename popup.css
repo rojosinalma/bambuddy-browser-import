@@ -480,7 +480,7 @@ body {
   gap: 6px;
   margin-top: 6px;
 }
-.new-folder-row input {
+.new-folder-row input[type="text"] {
   flex: 1;
   min-width: 0;
   background: var(--surface2);
@@ -491,7 +491,19 @@ body {
   font-size: 12px;
   padding: 5px 8px;
 }
-.new-folder-row input:focus { outline: none; border-color: var(--green); }
+.new-folder-row input[type="text"]:focus { outline: none; border-color: var(--green); }
+.new-folder-root {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+}
+.new-folder-root input { margin: 0; accent-color: var(--green); cursor: pointer; }
 
 /* ── v2: job progress ────────────────────────────────────────────────────── */
 .job-progress {
