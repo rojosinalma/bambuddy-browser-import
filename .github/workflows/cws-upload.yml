@@ -1,0 +1,52 @@
+name: Chrome Web Store upload
+
+# Re-uploads a released tag's signed .crx to the Chrome Web Store and submits it for review.
+# For when the release job's upload was refused (ITEM_NOT_UPDATABLE: the previous version was
+# still in review) — run it once that review has cleared.
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag whose .crx to upload (e.g. v0.9.6)
+        required: true
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    env:
+      CWS_ITEM_ID: kcffnknnapkmkabmkbghccgjfcgiobgb
+    steps:
+      - name: Download release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p build
+          gh release download "${{ inputs.tag }}" --repo "$GITHUB_REPOSITORY" --pattern '*-chrome.crx' --dir build
+          ls -l build
+
+      - name: Upload and publish
+        env:
+          CWS_CLIENT_ID:     ${{ secrets.CWS_CLIENT_ID }}
+          CWS_CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
+          CWS_REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
+        run: |
+          TOKEN=$(curl -sf -X POST https://oauth2.googleapis.com/token \
+            -d client_id="$CWS_CLIENT_ID" -d client_secret="$CWS_CLIENT_SECRET" \
+            -d refresh_token="$CWS_REFRESH_TOKEN" -d grant_type=refresh_token | jq -r .access_token)
+          [ -n "$TOKEN" ] && [ "$TOKEN" != null ] || { echo "::error::could not obtain access token"; exit 1; }
+
+          CRX=$(ls build/*-chrome.crx | head -1)
+          UPLOAD=$(curl -sf -X PUT \
+            -H "Authorization: Bearer $TOKEN" -H "x-goog-api-version: 2" \
+            -H "X-Goog-Upload-Protocol: raw" -H "X-Goog-Upload-File-Name: $(basename "$CRX")" \
+            --data-binary @"$CRX" \
+            "https://www.googleapis.com/upload/chromewebstore/v1.1/items/$CWS_ITEM_ID")
+          echo "upload: $UPLOAD"
+          [ "$(echo "$UPLOAD" | jq -r .uploadState)" = "SUCCESS" ] || { echo "::error::upload rejected"; exit 1; }
+
+          PUBLISH=$(curl -s -X POST -H "Authorization: Bearer $TOKEN" -H "x-goog-api-version: 2" -H "Content-Length: 0" \
+            "https://www.googleapis.com/chromewebstore/v1.1/items/$CWS_ITEM_ID/publish")
+          echo "publish: $PUBLISH"
+          echo "$PUBLISH" | jq -e '.status | index("OK") or index("ITEM_PENDING_REVIEW")' >/dev/null \
+            || { echo "::error::publish not accepted"; exit 1; }
