@@ -11,6 +11,7 @@ Based on [wolfrage76/Bambuddy-Extension](https://github.com/wolfrage76/Bambuddy-
 - **Background imports** — the job runs in the extension's background worker, so closing the popup no longer cancels it; reopen it to see live progress, or wait for the desktop notification
 - **Instant popup** — models are resolved the moment the page loads and cached; thumbnails are fetched at 200 px instead of full size (~8 KB instead of ~1.3 MB each)
 - **Open in Bambuddy** always lands in the folder the plates were saved to
+- **Import from the page itself** — a small import bubble on every model thumbnail (search results, home, remixes) and an **Import to Bambuddy** button under *Open in Bambu Studio* on model pages; both open the same picker right there, no toolbar click needed
 
 ![Popup on a MakerWorld model page: profile cards with print time, colours, AMS and rating, folder picker and the import button](docs/screenshot.jpg)
 
@@ -75,7 +76,8 @@ Paste the key, click **Test Connection**, then **Save**. The test runs three che
 ## Usage
 
 1. Open any model page on [makerworld.com](https://makerworld.com) — the toolbar icon shows a green **↓**
-2. Click the icon. The profile you clicked on the page (or MakerWorld's default) is pre-selected
+2. Click the icon, the **Import to Bambuddy** button under *Open in Bambu Studio*, or the bubble on any
+   model thumbnail. The profile you clicked on the page (or MakerWorld's default) is pre-selected
 3. Click more cards to add them, or use **All** / **None**
 4. Pick the target folder (the last one used is remembered), or hit the folder-plus icon to create one
 5. Click **Import N plates**
@@ -84,6 +86,8 @@ You can close the popup at this point. The badge counts down the remaining plate
 its own status when you reopen the popup, and a notification fires when everything is done.
 
 Plates already in your library are reported as such and not downloaded again.
+
+The in-page buttons can be turned off in Settings (*Show import buttons on MakerWorld pages*).
 
 ---
 
@@ -122,9 +126,11 @@ re-authenticate under **Settings → Bambu Cloud** in Bambuddy.
 ├── shared.js           Constants, settings, helpers used by every context
 ├── background.js       Background worker — API calls, resolve cache, import queue, notifications
 ├── content.js          Runs on makerworld.com — reports the profile selected on the page
-├── popup.html/js/css   Toolbar popup — cards, folder picker, progress
+├── page.js             Runs on makerworld.com — thumbnail bubbles, model-page button, in-page picker panel
+├── popup.html/js/css   Picker — cards, folder picker, progress (toolbar popup and in-page panel)
 ├── options.html/js/css Settings page
 ├── scripts/build-crx.py Builds the signed .crx for Chrome Web Store uploads (CI)
+├── bin/dev-build       Local dev zip + dev-key-signed crx with a stable extension id
 └── icons/              16 / 32 / 48 / 64 / 128 px, rendered from icons/src/icon.svg
 ```
 
