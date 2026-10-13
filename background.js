@@ -323,9 +323,11 @@ function updateBadgeForTab(tabId, url) {
 
 async function updateJobBadge(job) {
   if (job.tabId == null) return;
+  // The job may have been started from a search/list page, so only require
+  // the tab to still be on MakerWorld — not on this model's page.
   try {
     const tab = await chrome.tabs.get(job.tabId);
-    if (modelIdFromUrl(tab.url) !== job.modelId) return;
+    if (!/(^|\.)makerworld\.com$/i.test(new URL(tab.url ?? '').hostname)) return;
   } catch { return; }
 
   if (job.status === 'running') {
@@ -333,7 +335,9 @@ async function updateJobBadge(job) {
     setBadge(job.tabId, String(remaining), '#60a9ff');
   } else {
     setBadge(job.tabId, job.status === 'failed' ? '!' : '✓', job.status === 'failed' ? '#ff5555' : '#1db954');
-    setTimeout(() => updateBadgeForTab(job.tabId, `https://makerworld.com/en/models/${job.modelId}`), 5000);
+    setTimeout(() => {
+      chrome.tabs.get(job.tabId).then(t => updateBadgeForTab(job.tabId, t.url ?? '')).catch(() => {});
+    }, 5000);
   }
 }
 
@@ -350,14 +354,14 @@ chrome.tabs.onActivated.addListener(async ({ tabId }) => {
 
 // ─── Message handler ─────────────────────────────────────────────────────────
 
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  handleMessage(message)
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  handleMessage(message, sender)
     .then(result => sendResponse({ success: true,  data: result }))
     .catch(error => sendResponse({ success: false, error: error.message }));
   return true;
 });
 
-async function handleMessage(message) {
+async function handleMessage(message, sender) {
   switch (message.action) {
 
     case 'resolve':
@@ -370,7 +374,9 @@ async function handleMessage(message) {
       return createFolder(message.name, message.parentId);
 
     case 'startImport':
-      return startImport(message);
+      // The toolbar popup knows its tab; the embedded picker does not, but its
+      // message arrives from the MakerWorld tab hosting the iframe.
+      return startImport({ ...message, tabId: message.tabId ?? sender.tab?.id ?? null });
 
     case 'getJob':
       return getJob(message.modelId);

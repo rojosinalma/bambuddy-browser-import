@@ -72,6 +72,16 @@ body {
 .btn-icon:hover { background: var(--surface2); color: var(--text); }
 .btn-icon svg { width: 16px; height: 16px; }
 
+.header-actions { display: flex; align-items: center; gap: 2px; }
+
+/* ── Embedded mode (iframe inside a MakerWorld page) ──────────────────────── */
+/* Same 360px × ≤596px box as the toolbar popup; the parent iframe clips to a
+   12px radius, so the body rounds its own corners to match. The close button
+   exists only here — the toolbar popup closes itself on blur/Escape. */
+#btn-close { display: none; }
+body.embed { border-radius: 12px; overflow: hidden; }
+body.embed #btn-close { display: flex; }
+
 /* ── Content area ─────────────────────────────────────────────────────────── */
 .content {
   padding: 12px 14px;

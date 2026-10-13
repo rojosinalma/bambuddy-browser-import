@@ -1,11 +1,11 @@
 /**
  * Content script for makerworld.com model pages.
  *
- * Answers one question from the popup: which print profile is currently
- * selected on the page? The tab URL alone is not enough — MakerWorld only
- * writes `#profileId-…` into the URL after the user clicks a different profile,
- * and the popup's view of the URL can lag a React re-render. Running inside the
- * page we see the live hash and the DOM.
+ * Answers one question from the popup (and from page.js): which print profile
+ * is currently selected on the page? The tab URL alone is not enough —
+ * MakerWorld only writes `#profileId-…` into the URL after the user clicks a
+ * different profile, and the popup's view of the URL can lag a React re-render.
+ * Running inside the page we see the live hash and the DOM.
  */
 
 const PROFILE_HASH = /#profileId[-=](\d+)/i;
@@ -77,14 +77,19 @@ function findProfileId(node, depth) {
   return null;
 }
 
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (message?.action !== 'getSelectedProfile') return;
+/**
+ * Run the detectors in order; the first one that finds an id wins.
+ * Also called directly by page.js (same isolated world) for the in-page button.
+ */
+function detectSelectedProfile() {
   for (const [source, detect] of detectors) {
     const profileId = detect();
-    if (profileId !== null) {
-      sendResponse({ profileId, source });
-      return;
-    }
+    if (profileId !== null) return { profileId, source };
   }
-  sendResponse({ profileId: null, source: 'none' });
+  return { profileId: null, source: 'none' };
+}
+
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message?.action !== 'getSelectedProfile') return;
+  sendResponse(detectSelectedProfile());
 });

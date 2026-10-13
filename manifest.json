@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Bambuddy Browser Import",
-  "version": "0.9.3",
+  "version": "0.9.4",
   "description": "Import MakerWorld print profiles into your self-hosted Bambuddy library: pick the plates, pick the folder, one click.",
   "homepage_url": "https://github.com/rojosinalma/bambuddy-browser-import",
 
@@ -34,8 +34,15 @@
   "content_scripts": [
     {
       "matches": ["https://makerworld.com/*"],
-      "js": ["content.js"],
+      "js": ["shared.js", "content.js", "page.js"],
       "run_at": "document_idle"
+    }
+  ],
+
+  "web_accessible_resources": [
+    {
+      "resources": ["popup.html", "popup.js", "popup.css", "shared.js", "icons/*.png"],
+      "matches": ["https://makerworld.com/*"]
     }
   ],
 

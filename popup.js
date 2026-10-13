@@ -8,9 +8,35 @@
  * The popup owns no long-running work: Chrome closes it the moment focus moves
  * elsewhere, so imports run in background.js and this page just renders
  * whatever job state exists for the current model.
+ *
+ * The same page also runs embedded in an iframe on MakerWorld (opened by
+ * page.js with `?embed=1&url=…`); see "Embedded mode" below.
  */
 
 const $ = id => document.getElementById(id);
+
+// ─── Embedded mode ───────────────────────────────────────────────────────────
+// page.js opens this file in an iframe (`?embed=1&url=…`). The page cannot be
+// asked for the active tab, so the model URL comes from the query string, and
+// the host iframe is told how tall we are and when to go away.
+
+const embed = embedParams();
+if (embed.embed) document.body.classList.add('embed');
+
+function postToHost(msg) {
+  if (embed.embed) window.parent.postMessage({ source: 'bambuddy-import', ...msg }, '*');
+}
+
+let heightFrame = 0;
+function reportHeight() {
+  if (!embed.embed || heightFrame) return;
+  heightFrame = requestAnimationFrame(() => {
+    heightFrame = 0;
+    postToHost({ type: 'height', height: Math.ceil(document.body.getBoundingClientRect().height) });
+  });
+}
+
+function closeEmbed() { postToHost({ type: 'close' }); }
 
 const states = {
   unconfigured: $('state-unconfigured'),
@@ -22,6 +48,7 @@ const states = {
 
 function showOnly(key) {
   for (const [k, el] of Object.entries(states)) el.style.display = k === key ? '' : 'none';
+  reportHeight();
 }
 
 const RESULT_ICONS = {
@@ -36,9 +63,10 @@ function showResult(type, text) {
   $('result-icon').innerHTML = RESULT_ICONS[type] ?? '';
   $('result-text').textContent = text;
   banner.style.display = 'flex';
+  reportHeight();
 }
 
-function hideResult() { $('result-banner').style.display = 'none'; }
+function hideResult() { $('result-banner').style.display = 'none'; reportHeight(); }
 
 async function sendToBackground(message) {
   const response = await chrome.runtime.sendMessage(message);
@@ -235,6 +263,7 @@ function refreshSelection() {
   const first = [...session.selected].map(id => session.cards.get(id)).find(c => c?.cover);
   const designCover = pickStr(session.resolveData?.design, 'coverUrl') || pickStr(session.resolveData?.design, 'cover_url');
   setThumbnail(first?.cover || designCover);
+  reportHeight();   // every renderCards/applyJob path ends here
 }
 
 function renderCards(data, hintedProfileId) {
@@ -339,6 +368,7 @@ function showNewFolderRow(show) {
     $('new-folder-root-label').style.display = selectedFolderId() === null ? 'none' : '';
     $('new-folder-name').focus();
   }
+  reportHeight();
 }
 
 function newFolderParentId() {
@@ -478,21 +508,34 @@ async function boot() {
   session.bambuddyUrl = (session.settings[STORAGE_KEYS.BAMBUDDY_URL] ?? '').replace(/\/+$/, '');
   if (!session.bambuddyUrl) { showOnly('unconfigured'); return; }
 
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  const url = tab?.url ?? '';
+  let tabId = null;
+  let url   = '';
+  if (embed.embed) {
+    url = embed.url ?? '';
+    if (modelIdFromUrl(url) === null) {
+      showOnly('error');
+      $('error-detail').textContent = `Not a MakerWorld model URL: ${url || '(none)'}`;
+      return;
+    }
+  } else {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    url   = tab?.url ?? '';
+    tabId = tab?.id ?? null;
+  }
   const modelId = modelIdFromUrl(url);
   if (modelId === null) { showOnly('wrongPage'); return; }
 
-  session.tabId   = tab.id;
+  session.tabId   = tabId;
   session.tabUrl  = url;
   session.modelId = modelId;
   $('header-subtitle').textContent = new URL(url).hostname;
 
   // Everything independent runs at once; the resolve is usually already
   // cached by the background prefetch that fired when the tab loaded.
+  // Embedded, the page profile comes from the query string instead of content.js.
   const [resolveResult, pageProfileId, job] = await Promise.all([
     sendToBackground({ action: 'resolve', url }).then(d => ({ ok: true, d }), e => ({ ok: false, e })),
-    getActiveProfileIdFromPage(tab.id),
+    embed.embed ? embed.profile : getActiveProfileIdFromPage(tabId),
     sendToBackground({ action: 'getJob', modelId }).catch(() => null),
     loadFolders()
   ]);
@@ -526,11 +569,21 @@ function init() {
   $('btn-create-folder').addEventListener('click', createFolder);
   $('new-folder-name').addEventListener('keydown', e => {
     if (e.key === 'Enter') createFolder();
-    if (e.key === 'Escape') showNewFolderRow(false);
+    if (e.key === 'Escape') {
+      showNewFolderRow(false);
+      if (embed.embed) e.stopPropagation();   // first Escape closes the row, not the panel
+    }
   });
   $('folder-select').addEventListener('change', () =>
     chrome.storage.local.set({ [STORAGE_KEYS.LAST_FOLDER_ID]: selectedFolderId() })
   );
+
+  if (embed.embed) {
+    $('btn-close').addEventListener('click', closeEmbed);
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeEmbed(); });
+    // Catches whatever the explicit reportHeight() calls miss (images, fonts, scrollbars).
+    new ResizeObserver(reportHeight).observe(document.body);
+  }
   boot();
 }
 

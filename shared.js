@@ -8,6 +8,7 @@ const STORAGE_KEYS = {
   BAMBUDDY_URL:       'bambuddyUrl',
   API_KEY:            'apiKey',
   SHOW_OPEN_BTN:      'showOpenBtn',
+  PAGE_BUTTONS:       'pageButtons',
   NOTIFY_ON_COMPLETE: 'notifyOnComplete',
   CONCURRENCY:        'importConcurrency',
   RESOLVE_TTL:        'resolveCacheTtl',
@@ -16,6 +17,7 @@ const STORAGE_KEYS = {
 
 const DEFAULTS = {
   [STORAGE_KEYS.SHOW_OPEN_BTN]:      true,
+  [STORAGE_KEYS.PAGE_BUTTONS]:       true,
   [STORAGE_KEYS.NOTIFY_ON_COMPLETE]: true,
   [STORAGE_KEYS.CONCURRENCY]:        3,
   [STORAGE_KEYS.RESOLVE_TTL]:        300,
@@ -51,6 +53,21 @@ function clamp(n, { min, max }, fallback) {
   const v = parseInt(n, 10);
   if (isNaN(v)) return fallback;
   return Math.min(max, Math.max(min, v));
+}
+
+/**
+ * Query parameters the content script passes when it opens popup.html in an
+ * iframe on a MakerWorld page: `?embed=1&url=<model URL>[&profile=<id>]`.
+ * Touches `location` only when called, so the worker can still load this file.
+ */
+function embedParams() {
+  const q = new URLSearchParams(location.search);
+  const profile = parseInt(q.get('profile') ?? '', 10);
+  return {
+    embed:   q.get('embed') === '1',
+    url:     q.get('url') || null,
+    profile: profile > 0 ? profile : null
+  };
 }
 
 async function getSettings() {

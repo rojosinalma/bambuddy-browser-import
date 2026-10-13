@@ -13,6 +13,7 @@ const btnToggle      = document.getElementById('btn-toggle-key');
 const statusEl       = document.getElementById('conn-status');
 const versionEl      = document.getElementById('version-tag');
 const showOpenBtnChk = document.getElementById('show-open-btn');
+const pageButtonsChk = document.getElementById('page-buttons');
 const notifyChk      = document.getElementById('notify-complete');
 const concurrencyIn  = document.getElementById('concurrency');
 const resolveTtlIn   = document.getElementById('resolve-ttl');
@@ -81,6 +82,7 @@ async function loadSettings() {
   urlInput.value         = s[STORAGE_KEYS.BAMBUDDY_URL] ?? '';
   keyInput.value         = s[STORAGE_KEYS.API_KEY] ?? '';
   showOpenBtnChk.checked = s[STORAGE_KEYS.SHOW_OPEN_BTN];
+  pageButtonsChk.checked = s[STORAGE_KEYS.PAGE_BUTTONS];
   notifyChk.checked      = s[STORAGE_KEYS.NOTIFY_ON_COMPLETE];
   concurrencyIn.value    = s[STORAGE_KEYS.CONCURRENCY];
   resolveTtlIn.value     = s[STORAGE_KEYS.RESOLVE_TTL];
@@ -133,6 +135,7 @@ async function save() {
     [STORAGE_KEYS.BAMBUDDY_URL]:       url,
     [STORAGE_KEYS.API_KEY]:            key,
     [STORAGE_KEYS.SHOW_OPEN_BTN]:      showOpenBtnChk.checked,
+    [STORAGE_KEYS.PAGE_BUTTONS]:       pageButtonsChk.checked,
     [STORAGE_KEYS.NOTIFY_ON_COMPLETE]: notifyChk.checked,
     [STORAGE_KEYS.CONCURRENCY]:        clamp(concurrencyIn.value, LIMITS.CONCURRENCY, DEFAULTS[STORAGE_KEYS.CONCURRENCY]),
     [STORAGE_KEYS.RESOLVE_TTL]:        clamp(resolveTtlIn.value, LIMITS.RESOLVE_TTL, DEFAULTS[STORAGE_KEYS.RESOLVE_TTL])
