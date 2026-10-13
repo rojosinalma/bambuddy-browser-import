@@ -50,5 +50,21 @@ fi
 rm -rf "$stage"
 
 id=$(openssl rsa -in "$key" -pubout -outform DER 2>/dev/null | sha256sum | head -c 32 | tr '0-9a-f' 'a-p')
+{
+  echo "# Dev build $version"
+  echo
+  echo "| | |"
+  echo "|---|---|"
+  echo "| Version | \`$version\` |"
+  echo "| Built | $(date '+%Y-%m-%d %H:%M %Z') |"
+  echo "| Commit | \`$(git rev-parse --short HEAD 2>/dev/null || echo -)\` on \`$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo -)\` |"
+  echo "| Extension id | \`$id\` |"
+  for f in "build/$name.crx" "build/$name.zip"; do
+    [ -f "$f" ] && echo "| $(basename "$f") | $(stat -c %s "$f") bytes, sha256 \`$(sha256sum "$f" | head -c 12)…\` |"
+  done
+  echo
+  echo "Vivaldi/Chrome apply an upgrade only once the extension is idle; the build reloads itself when the"
+  echo "update is pending, so closing the options tab is enough. Check the version at vivaldi://extensions → Details."
+} > build/BUILD.md
 echo "version $version  id $id  seed $seed"
-ls -l "build/$name.zip" "build/$name.crx" 2>/dev/null
+ls -l "build/$name.zip" "build/$name.crx" build/BUILD.md 2>/dev/null

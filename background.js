@@ -352,6 +352,14 @@ chrome.tabs.onActivated.addListener(async ({ tabId }) => {
   } catch { /* chrome:// pages etc. */ }
 });
 
+// ─── Updates ─────────────────────────────────────────────────────────────────
+// Chromium defers an upgrade while any extension page is open (options tab,
+// toolbar popup, the embedded picker on a MakerWorld tab) and applies it only
+// when the extension goes idle. Reloading on the pending-update event applies
+// it at once instead.
+
+chrome.runtime.onUpdateAvailable.addListener(() => chrome.runtime.reload());
+
 // ─── Dev seed ────────────────────────────────────────────────────────────────
 // Unpacked builds only: a `dev-settings.json` next to the manifest (gitignored,
 // not in the release package) pre-fills settings that are still unset, so a
