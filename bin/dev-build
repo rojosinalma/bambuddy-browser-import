@@ -1,0 +1,54 @@
+#!/usr/bin/env sh
+# Dev build for loading into a browser without the stores.
+#
+#   build/bambuddy-browser-import-dev.zip   constant name, files at the archive root:
+#                                           extracts to the same folder every time,
+#                                           so "Load unpacked" + Reload keeps working.
+#   build/bambuddy-browser-import-dev.crx   signed with the local dev key
+#                                           (~/.config/bambuddy-browser-import/dev-signing-key.pem),
+#                                           so the extension id is stable across builds and
+#                                           distinct from the store id. Installing it over the
+#                                           previous build keeps storage. Chromium on Windows
+#                                           only accepts it when that id is policy-allowlisted.
+#
+# The staged manifest gets a fourth version component (0.9.4.<n>, n from
+# build/.n) so every build is an upgrade for the browser; the repo manifest is
+# untouched. File list comes from release.yml so the two stay equal.
+#
+#   bin/dev-build [--seed]    --seed packs dev-settings.json (URL + API key) too
+set -eu
+cd "$(dirname "$0")/.."
+
+key=${BBI_DEV_KEY:-$HOME/.config/bambuddy-browser-import/dev-signing-key.pem}
+name=bambuddy-browser-import-dev
+stage=build/stage
+files=$(sed -n 's/^ *PACKAGE_FILES: *//p' .github/workflows/release.yml)
+seed=no
+[ "${1:-}" = "--seed" ] && seed=yes
+
+for f in *.js; do node --check "$f"; done
+
+mkdir -p build
+n=$(( $(cat build/.n 2>/dev/null || echo 0) + 1 ))
+echo "$n" > build/.n
+base=$(jq -r .version manifest.json)
+version="$base.$n"
+
+rm -rf "$stage" "build/$name.zip" "build/$name.crx"
+mkdir -p "$stage"
+# shellcheck disable=SC2086
+cp -r $files "$stage/"
+rm -rf "$stage/icons/src"
+jq --arg v "$version" '.version = $v' manifest.json > "$stage/manifest.json"
+if [ "$seed" = yes ]; then
+  [ -f dev-settings.json ] || { echo "dev-settings.json missing" >&2; exit 1; }
+  cp dev-settings.json "$stage/"
+fi
+
+(cd "$stage" && zip -qr -X "../$name.zip" .)
+[ -f "$key" ] && python3 scripts/build-crx.py --key "$key" --zip "build/$name.zip" --out "build/$name.crx"
+rm -rf "$stage"
+
+id=$(openssl rsa -in "$key" -pubout -outform DER 2>/dev/null | sha256sum | head -c 32 | tr '0-9a-f' 'a-p')
+echo "version $version  id $id  seed $seed"
+ls -l "build/$name.zip" "build/$name.crx" 2>/dev/null
