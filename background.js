@@ -352,6 +352,26 @@ chrome.tabs.onActivated.addListener(async ({ tabId }) => {
   } catch { /* chrome:// pages etc. */ }
 });
 
+// ─── Dev seed ────────────────────────────────────────────────────────────────
+// Unpacked builds only: a `dev-settings.json` next to the manifest (gitignored,
+// not in the release package) pre-fills settings that are still unset, so a
+// fresh "Load unpacked" needs no typing. Missing file = no-op.
+
+chrome.runtime.onInstalled.addListener(async () => {
+  try {
+    const resp = await fetch(chrome.runtime.getURL('dev-settings.json'));
+    if (!resp.ok) return;
+    const seed    = await resp.json();
+    const allowed = new Set(Object.values(STORAGE_KEYS));
+    const current = await chrome.storage.local.get(Object.values(STORAGE_KEYS));
+    const toSet   = {};
+    for (const [k, v] of Object.entries(seed)) {
+      if (allowed.has(k) && current[k] === undefined) toSet[k] = v;
+    }
+    if (Object.keys(toSet).length) await chrome.storage.local.set(toSet);
+  } catch { /* no dev-settings.json: packaged build */ }
+});
+
 // ─── Message handler ─────────────────────────────────────────────────────────
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {

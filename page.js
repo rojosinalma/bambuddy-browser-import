@@ -118,7 +118,7 @@
 
     const host = document.createElement('div');
     host.setAttribute(HOST_MARK, '1');
-    host.style.cssText = 'position:absolute;top:8px;right:8px;z-index:5;line-height:0;';
+    host.style.cssText = 'position:absolute;top:8px;left:50%;transform:translateX(-50%);z-index:5;line-height:0;';
     const root = host.attachShadow({ mode: 'open' });
 
     const style = document.createElement('style');
@@ -169,17 +169,46 @@
 
   // ─── Model page button ─────────────────────────────────────────────────────
 
-  function findStudioButton() {
-    const matches = [];
-    for (const el of document.querySelectorAll('button, a')) {
-      if (el.hasAttribute(BTN_MARK)) continue;
-      const text = el.textContent ?? '';
-      if (!STUDIO_CONTAIN.test(text)) continue;
-      if (STUDIO_TEXT.test(text) || (el.innerText ?? '').trim().length < 40) matches.push(el);
+  const CLICKABLE = 'button, a, [role="button"]';
+  const SKIP_TAGS = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT', 'TEMPLATE']);
+
+  function isVisible(el) {
+    return el.getClientRects().length > 0;
+  }
+
+  function studioCandidates() {
+    const out  = [];
+    const seen = new Set();
+    const add = el => {
+      if (!el || seen.has(el) || el.hasAttribute(BTN_MARK) || el.closest(`[${HOST_MARK}]`)) return;
+      seen.add(el);
+      out.push(el);
+    };
+
+    // Text-node pass: finds the label even when it sits in a nested <span>.
+    // Script/style text is skipped — the i18n strings in __NEXT_DATA__ carry
+    // the same phrase.
+    const walker = document.createTreeWalker(document.body ?? document.documentElement, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      if (!STUDIO_CONTAIN.test(node.nodeValue ?? '')) continue;
+      const parent = node.parentElement;
+      if (!parent || SKIP_TAGS.has(parent.tagName)) continue;
+      add(parent.closest(CLICKABLE) ?? parent);
     }
-    // Prefer the innermost match: a wrapping <a> around the real button also
-    // carries the text.
-    return matches.find(el => !matches.some(m => m !== el && el.contains(m))) ?? null;
+
+    // Element pass: label split across several elements.
+    for (const el of document.querySelectorAll(CLICKABLE)) {
+      const text = el.textContent ?? '';
+      if (STUDIO_TEXT.test(text) || (STUDIO_CONTAIN.test(text) && text.trim().length < 40)) add(el);
+    }
+    return out;
+  }
+
+  function findStudioButton() {
+    // MakerWorld renders responsive duplicates; only a laid-out one counts.
+    const visible = studioCandidates().filter(isVisible);
+    // Innermost match: a wrapping <a> around the real button carries the text too.
+    return visible.find(el => !visible.some(m => m !== el && el.contains(m))) ?? null;
   }
 
   function ensureModelButton() {
