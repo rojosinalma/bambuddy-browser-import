@@ -92,6 +92,33 @@ async function loadSettings() {
 
 // ─── Save ─────────────────────────────────────────────────────────────────────
 
+// Host permission for the Bambuddy origin. Prompts once, then remembered;
+// without it every background fetch to the instance is blocked.
+// Returns the origin, or null when the URL is invalid or the user declined
+// (status already set).
+async function ensureHostPermission(url) {
+  let parsedUrl;
+  try { parsedUrl = new URL(url); }
+  catch {
+    setStatus('error', 'Enter a valid URL (e.g. ', { code: 'http://192.168.1.100:8000' }, ').');
+    urlInput.focus();
+    return null;
+  }
+
+  const origin  = parsedUrl.origin;
+  const pattern = `${origin}/*`;
+
+  if (!(await chrome.permissions.contains({ origins: [pattern] }))) {
+    setStatus('busy', 'Requesting access to ', { code: origin }, '…');
+    const granted = await chrome.permissions.request({ origins: [pattern] });
+    if (!granted) {
+      setStatus('error', 'Permission to access ', { code: origin }, ' was denied. The extension cannot connect to Bambuddy without it.');
+      return null;
+    }
+  }
+  return origin;
+}
+
 async function save() {
   clearStatus();
   const url = urlInput.value.trim().replace(/\/+$/, '');
@@ -103,33 +130,8 @@ async function save() {
     return;
   }
 
-  let parsedUrl;
-  try { parsedUrl = new URL(url); }
-  catch {
-    setStatus('error', 'Enter a valid URL (e.g. ', { code: 'http://192.168.1.100:8000' }, ').');
-    urlInput.focus();
-    return;
-  }
-
-  // Request host permission for this specific Bambuddy origin.
-  // This replaces the old broad <all_urls> host permission — the browser will
-  // prompt once and remember the choice. Without this, background fetch calls
-  // to the Bambuddy instance will be blocked.
-  const origin  = parsedUrl.origin;
-  const pattern = `${origin}/*`;
-
-  const alreadyGranted = await chrome.permissions.contains({ origins: [pattern] });
-
-  if (!alreadyGranted) {
-    setStatus('busy', 'Requesting access to ', { code: origin }, '…');
-
-    const granted = await chrome.permissions.request({ origins: [pattern] });
-
-    if (!granted) {
-      setStatus('error', 'Permission to access ', { code: origin }, ' was denied. The extension cannot connect to Bambuddy without it.');
-      return;
-    }
-  }
+  const origin = await ensureHostPermission(url);
+  if (!origin) return;
 
   await chrome.storage.local.set({
     [STORAGE_KEYS.BAMBUDDY_URL]:       url,
@@ -149,7 +151,7 @@ async function save() {
 
 async function testConnection() {
   clearStatus();
-  const url = urlInput.value.trim();
+  const url = urlInput.value.trim().replace(/\/+$/, '');
   const key = keyInput.value.trim();
 
   if (!url) {
@@ -157,9 +159,11 @@ async function testConnection() {
     return;
   }
 
+  if (!(await ensureHostPermission(url))) return;
+
   // Temporarily store values for the background script to use
   await chrome.storage.local.set({
-    [STORAGE_KEYS.BAMBUDDY_URL]: url.replace(/\/+$/, ''),
+    [STORAGE_KEYS.BAMBUDDY_URL]: url,
     [STORAGE_KEYS.API_KEY]:      key
   });
 
