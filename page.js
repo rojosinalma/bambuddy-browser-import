@@ -102,6 +102,27 @@
 
   // ─── Card buttons ──────────────────────────────────────────────────────────
 
+  /**
+   * Bubble over the card's thumbnail. Grid cards (image spans the card):
+   * top-centre, clear of the like/dislike controls at the right. Horizontal
+   * cards (thumbnail beside the text, e.g. "Remixes" on a model page):
+   * top-left of the thumbnail, clear of the title.
+   */
+  function placeCardHost(card, host) {
+    const img = [...card.querySelectorAll('img')].find(isVisible);
+    const cr  = card.getBoundingClientRect();
+    const ir  = img?.getBoundingClientRect();
+    if (!ir || ir.width <= 0 || cr.width <= 0) {
+      host.style.cssText = 'position:absolute;top:8px;left:50%;transform:translateX(-50%);z-index:5;line-height:0;';
+      return;
+    }
+    const top  = Math.round(ir.top - cr.top) + 8;
+    const left = ir.width < cr.width * 0.7
+      ? `left:${Math.round(ir.left - cr.left) + 8}px;`
+      : `left:${Math.round(ir.left - cr.left + ir.width / 2)}px;transform:translateX(-50%);`;
+    host.style.cssText = `position:absolute;top:${top}px;${left}z-index:5;line-height:0;`;
+  }
+
   function injectCard(card) {
     if (!(card instanceof Element) || card.hasAttribute(CARD_MARK)) return;
     // Nested matches (e.g. .design-card-title inside .js-design-card) get no
@@ -118,7 +139,7 @@
 
     const host = document.createElement('div');
     host.setAttribute(HOST_MARK, '1');
-    host.style.cssText = 'position:absolute;top:8px;left:50%;transform:translateX(-50%);z-index:5;line-height:0;';
+    placeCardHost(card, host);
     const root = host.attachShadow({ mode: 'open' });
 
     const style = document.createElement('style');
@@ -169,9 +190,9 @@
 
   // ─── Model page button ─────────────────────────────────────────────────────
 
-  const CLICKABLE = 'button, a, [role="button"]';
   const SKIP_TAGS = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT', 'TEMPLATE']);
   const MAX_CLIMB = 6;
+  const BAND_PAD  = 20;     // px the control may extend beyond its label (button padding)
   const STYLE_ID  = 'bambuddy-import-style';
   const BTN_CSS   = `[${BTN_MARK}]:hover{background-color:color-mix(in srgb, var(--bbi-accent) 14%, transparent)!important}`;
 
@@ -179,70 +200,82 @@
     return el.getClientRects().length > 0;
   }
 
-  function normText(el) {
-    return (el.textContent ?? '').replace(/\s+/g, ' ').trim();
-  }
-
-  /** Elements whose own text is the Studio label (innermost, deduped). */
-  function studioLabelElements() {
-    const out  = [];
-    const seen = new Set();
-    const add = el => {
-      if (!el || seen.has(el) || el.closest(`[${BTN_MARK}], [${HOST_MARK}]`)) return;
-      seen.add(el);
-      out.push(el);
-    };
-
-    // Text-node pass: finds the label even when it sits in a nested <span>.
-    // Script/style text is skipped — the i18n strings in __NEXT_DATA__ carry
-    // the same phrase.
+  /**
+   * Visible elements directly holding the Studio label text, exact matches
+   * first. Walks text nodes so a label inside a nested <span> is found whatever
+   * MakerWorld uses as the clickable (button, anchor or a styled div); script
+   * text is skipped because the i18n strings in __NEXT_DATA__ carry the phrase.
+   */
+  function studioLabels() {
+    const exact = [];
+    const loose = [];
+    const seen  = new Set();
     const walker = document.createTreeWalker(document.body ?? document.documentElement, NodeFilter.SHOW_TEXT);
     for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-      if (!STUDIO_CONTAIN.test(node.nodeValue ?? '')) continue;
-      const parent = node.parentElement;
-      if (!parent || SKIP_TAGS.has(parent.tagName)) continue;
-      if (normText(parent).length < 40) add(parent);
+      const text = node.nodeValue ?? '';
+      if (!STUDIO_CONTAIN.test(text)) continue;
+      const el = node.parentElement;
+      if (!el || seen.has(el) || SKIP_TAGS.has(el.tagName)) continue;
+      if (el.closest(`[${BTN_MARK}], [${HOST_MARK}]`) || !isVisible(el)) continue;
+      seen.add(el);
+      (STUDIO_TEXT.test(text) ? exact : loose).push(el);
     }
-
-    // Element pass: label split across several elements.
-    for (const el of document.querySelectorAll(CLICKABLE)) {
-      if (STUDIO_TEXT.test(normText(el))) add(el);
-    }
-    return out;
+    return exact.concat(loose);
   }
 
   /**
-   * Locate the native control. Returns { styled, top } or null:
-   *   styled — the clickable carrying MakerWorld's button classes (cloned for our look);
-   *   top    — the outermost ancestor holding nothing but this control (same text),
-   *            so a sibling inserted after it lands below the whole button, not
-   *            inside its flex row.
+   * Outermost ancestor still inside the control's horizontal band (the label's
+   * rect grown by BAND_PAD above and below). The bar's column is far taller, so
+   * the climb stops there and a sibling inserted after `top` lands below the
+   * whole control rather than inside its flex row.
    */
+  function bandTop(label) {
+    const r = label.getBoundingClientRect();
+    if (r.height <= 0) return null;
+    let top = label;
+    for (let p = label.parentElement, i = 0; p && p !== document.body && i < MAX_CLIMB; p = p.parentElement, i++) {
+      const pr = p.getBoundingClientRect();
+      if (pr.top < r.top - BAND_PAD || pr.bottom > r.bottom + BAND_PAD) break;
+      top = p;
+    }
+    return top;
+  }
+
   function findStudioButton() {
-    for (const start of studioLabelElements()) {
-      // MakerWorld renders responsive duplicates; only a laid-out one counts.
-      if (!isVisible(start)) continue;
-      const label = normText(start);
-      const clickables = [];
-      let top = start;
-      for (let el = start, i = 0; el && el !== document.body && i < MAX_CLIMB; el = el.parentElement, i++) {
-        if (normText(el) !== label) break;
-        top = el;
-        if (el.matches(CLICKABLE)) clickables.push(el);
-      }
-      if (clickables.length === 0) continue;
-      const styled = clickables.reduce((a, b) => (b.className.length > a.className.length ? b : a));
-      return { styled, top };
+    for (const label of studioLabels()) {
+      const top = bandTop(label);
+      if (top) return { label, top };
     }
     return null;
   }
 
-  function accentColor(el) {
-    const cs = getComputedStyle(el);
-    for (const c of [cs.backgroundColor, cs.borderTopColor, cs.color]) {
-      if (c && c !== 'transparent' && !/^rgba\([^)]*,\s*0\s*\)$/.test(c)) return c;
+  function isOpaque(color) {
+    if (!color || color === 'transparent') return false;
+    const m = /rgba?\(([^)]+)\)/.exec(color);
+    if (!m) return true;
+    const parts = m[1].split(/[\s,/]+/).filter(Boolean);
+    return parts.length < 4 || parseFloat(parts[3]) > 0.05;
+  }
+
+  /** Height, radius, accent and font copied from the native control's computed styles. */
+  function nativeLook(label, top) {
+    let accent = null;
+    let radius = null;
+    for (let el = label; el; el = el === top ? null : el.parentElement) {
+      const cs = getComputedStyle(el);
+      if (!accent && isOpaque(cs.backgroundColor)) accent = cs.backgroundColor;
+      if (!radius && cs.borderTopLeftRadius && cs.borderTopLeftRadius !== '0px') radius = cs.borderTopLeftRadius;
     }
-    return '#1db954';
+    const lcs = getComputedStyle(label);
+    const h   = top.getBoundingClientRect().height;
+    return {
+      accent:     accent ?? '#1db954',
+      radius:     radius ?? '8px',
+      height:     h > 0 ? Math.round(h) : 44,
+      fontFamily: lcs.fontFamily || 'inherit',
+      fontSize:   lcs.fontSize   || '15px',
+      fontWeight: lcs.fontWeight || '600'
+    };
   }
 
   function ensureButtonStyle() {
@@ -262,23 +295,27 @@
 
     const found = findStudioButton();
     if (!found) return;
-    const { styled, top } = found;
-    styled.setAttribute(CARD_MARK, 'native');
+    const { label, top } = found;
+    top.setAttribute(CARD_MARK, 'native');
 
-    // Same classes as the native button for size, radius, font and theme;
-    // outlined in its accent colour so the two don't read as twins.
-    const accent = accentColor(styled);
+    // Same size, radius and font as the native control, outlined in its accent
+    // colour so the two don't read as twins.
+    const look   = nativeLook(label, top);
     const button = document.createElement('button');
-    button.type = 'button';
-    button.className = styled.className;
+    button.type  = 'button';
     button.setAttribute(BTN_MARK, '1');
-    button.style.cssText = `width:100%;background-color:transparent;color:${accent};border:1px solid ${accent};box-shadow:none;--bbi-accent:${accent};`;
+    button.style.cssText = [
+      'all:unset', 'box-sizing:border-box', 'display:flex', 'align-items:center', 'justify-content:center',
+      'gap:8px', 'width:100%', `height:${look.height}px`, `border-radius:${look.radius}`,
+      `border:1px solid ${look.accent}`, `color:${look.accent}`, 'background-color:transparent',
+      `font-family:${look.fontFamily}`, `font-size:${look.fontSize}`, `font-weight:${look.fontWeight}`,
+      'line-height:1', 'cursor:pointer', 'user-select:none', `--bbi-accent:${look.accent}`
+    ].join(';');
     const img = document.createElement('img');
     img.src = ICON_URL;
     img.width = 18;
     img.height = 18;
     img.alt = '';
-    img.style.cssText = 'margin-right:8px;vertical-align:middle;';
     button.append(img, document.createTextNode('Import to Bambuddy'));
 
     const wrapper = document.createElement('div');
@@ -286,8 +323,8 @@
     wrapper.style.cssText = 'display:block;margin-top:8px;';
     // A control narrower than its container keeps that width; a full-width one
     // follows the container.
-    const topWidth    = top.getBoundingClientRect?.().width ?? 0;
-    const parentWidth = top.parentElement?.getBoundingClientRect?.().width ?? 0;
+    const topWidth    = top.getBoundingClientRect().width;
+    const parentWidth = top.parentElement?.getBoundingClientRect().width ?? 0;
     if (topWidth > 0 && parentWidth - topWidth > 4) wrapper.style.width = `${Math.round(topWidth)}px`;
     wrapper.appendChild(button);
 
@@ -456,7 +493,7 @@
     fullScan = false;
     pendingRoots = new Set();
 
-    ensureModelButton();
+    try { ensureModelButton(); } catch (err) { console.debug('[bambuddy] model button:', err); }
   }
 
   function onMutations(mutations) {
