@@ -194,7 +194,7 @@
   const MAX_CLIMB = 6;
   const BAND_PAD  = 20;     // px the control may extend beyond its label (button padding)
   const STYLE_ID  = 'bambuddy-import-style';
-  const BTN_CSS   = `[${BTN_MARK}]:hover{background-color:color-mix(in srgb, var(--bbi-accent) 14%, transparent)!important}`;
+  const BTN_CSS   = `[${BTN_MARK}]:hover{filter:brightness(1.1)}[${BTN_MARK}]:active{filter:brightness(.95)}`;
 
   function isVisible(el) {
     return el.getClientRects().length > 0;
@@ -270,6 +270,7 @@
     const h   = top.getBoundingClientRect().height;
     return {
       accent:     accent ?? '#1db954',
+      text:       lcs.color || '#111',   // the label's own colour already contrasts with the accent
       radius:     radius ?? '8px',
       height:     h > 0 ? Math.round(h) : 44,
       fontFamily: lcs.fontFamily || 'inherit',
@@ -298,8 +299,8 @@
     const { label, top } = found;
     top.setAttribute(CARD_MARK, 'native');
 
-    // Same size, radius and font as the native control, outlined in its accent
-    // colour so the two don't read as twins.
+    // Same size, radius, colours and font as the native control: a solid bar
+    // right under it.
     const look   = nativeLook(label, top);
     const button = document.createElement('button');
     button.type  = 'button';
@@ -307,9 +308,9 @@
     button.style.cssText = [
       'all:unset', 'box-sizing:border-box', 'display:flex', 'align-items:center', 'justify-content:center',
       'gap:8px', 'width:100%', `height:${look.height}px`, `border-radius:${look.radius}`,
-      `border:1px solid ${look.accent}`, `color:${look.accent}`, 'background-color:transparent',
+      'border:0', `color:${look.text}`, `background-color:${look.accent}`,
       `font-family:${look.fontFamily}`, `font-size:${look.fontSize}`, `font-weight:${look.fontWeight}`,
-      'line-height:1', 'cursor:pointer', 'user-select:none', `--bbi-accent:${look.accent}`
+      'line-height:1', 'cursor:pointer', 'user-select:none'
     ].join(';');
     const img = document.createElement('img');
     img.src = ICON_URL;
