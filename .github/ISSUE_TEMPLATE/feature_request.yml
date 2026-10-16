@@ -1,0 +1,39 @@
+name: Feature request
+description: Propose a change or an addition
+title: "Feature: "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What are you trying to do that the extension does not let you do today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: How should it work? A setting, a button on the page, a change to the import flow…
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      multiple: true
+      options:
+        - Popup / picker
+        - In-page buttons on MakerWorld
+        - Import queue / notifications
+        - Options page
+        - Bambuddy API
+        - Firefox
+        - Chrome / Chromium
+        - Other
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope check
+      options:
+        - label: I searched existing issues.

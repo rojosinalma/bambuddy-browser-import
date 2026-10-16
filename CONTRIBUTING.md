@@ -69,14 +69,21 @@ results and the button on a model page.
 
 - Plain, descriptive commit messages in the imperative ("Model page: solid button in the native
   accent colour"). No tags, no trailers.
-- One logical change per commit; a PR may hold several.
+- One logical change per commit; a PR may hold several. Every commit is GPG-signed
+  (`git config commit.gpgsign true`); unsigned commits are not merged.
 - Do not bump `manifest.json`'s version in a feature PR — the version bump is the release (see
   below) and is done on `main`.
 - Describe how you tested the change in the PR, and in which browser(s).
+- Add a line under *Unreleased* in `CHANGELOG.md` for anything a user would notice.
 
 ## Documentation
 
-- `README.md` — what it is, requirements, setup, licence. Nothing else goes there.
+- `README.md` — what it is, requirements (with minimum versions), installation, usage, development,
+  licence. Nothing else goes there.
+- `CHANGELOG.md` — Keep a Changelog; one section per version, *Unreleased* on top. The release
+  notes on GitHub carry the same section.
+- `SECURITY.md`, `CODE_OF_CONDUCT.md`, `LICENSE` (AGPL-3.0, with the MIT notice for the inherited
+  parts at the end) — the project documents; `.github/` holds the issue and PR templates.
 - `docs/features.md` — what the extension does.
 - `docs/usage.md` — the import flow step by step.
 - `docs/configuration.md` — every setting, its default and range.
@@ -104,8 +111,11 @@ release `v<version>` already exists it stops with a notice, otherwise it:
    (`CWS_CLIENT_ID` / `CWS_CLIENT_SECRET` / `CWS_REFRESH_TOKEN`). This step is non-fatal: the store
    refuses an upload while the previous version is still in review.
 
-So a release is: bump `version` in `manifest.json`, commit, push to `main`. Steps that need a secret
-are skipped when it is absent, so the workflow also works on a fork without store access.
+So a release is: move the *Unreleased* section of `CHANGELOG.md` under the new version with the
+date, bump `version` in `manifest.json`, commit (signed), push to `main`, then paste that changelog
+section into the GitHub release the workflow created (`gh release edit v<version> --notes-file …`).
+Steps that need a secret are skipped when it is absent, so the workflow also works on a fork without
+store access.
 
 Two manual workflows cover the Chrome Web Store side: **Chrome Web Store status** (`cws-status.yml`)
 shows the item's draft state, and **Chrome Web Store upload** (`cws-upload.yml`, input: a release tag)

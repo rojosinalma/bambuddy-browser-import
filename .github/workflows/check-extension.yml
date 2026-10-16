@@ -1,4 +1,5 @@
 name: Check extension
+run-name: ${{ github.event.pull_request.title || github.event.head_commit.message }} · ${{ github.actor }}
 
 # Syntax-checks the scripts and lints the packaged extension on every push and pull request,
 # so changes that do not bump the version (which release.yml skips) are still verified.

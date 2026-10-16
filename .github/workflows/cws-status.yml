@@ -1,7 +1,10 @@
 name: Chrome Web Store status
+run-name: ${{ github.ref_name }} · store status · ${{ github.actor }}
 
 on:
   workflow_dispatch:
+
+permissions: {}
 
 jobs:
   status:

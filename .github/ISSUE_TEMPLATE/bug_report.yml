@@ -1,0 +1,57 @@
+name: Bug report
+description: Something does not work as documented
+title: "Bug: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for the report. Remove your Bambuddy API key and any private URL from logs before pasting.
+  - type: input
+    id: version
+    attributes:
+      label: Extension version
+      description: From the options page header, `chrome://extensions` or `about:addons`.
+      placeholder: 0.9.6
+    validations:
+      required: true
+  - type: dropdown
+    id: browser
+    attributes:
+      label: Browser
+      options:
+        - Chrome / Chromium
+        - Edge
+        - Brave
+        - Firefox
+        - Other (say which below)
+    validations:
+      required: true
+  - type: input
+    id: bambuddy
+    attributes:
+      label: Bambuddy version
+      description: Shown by **Test Connection** on the options page or in Bambuddy's Settings → System.
+      placeholder: 0.2.4.5
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, what you got.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open a MakerWorld model page
+        2. Click the toolbar icon
+        3. …
+  - type: textarea
+    id: logs
+    attributes:
+      label: Console output
+      description: Lines from the service worker console (`chrome://extensions` → Inspect views) or the popup console. Secrets redacted.
+      render: text

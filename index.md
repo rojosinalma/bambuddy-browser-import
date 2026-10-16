@@ -60,7 +60,7 @@ class: home
     <div class="feature">
       <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></div>
       <h3>Open source</h3>
-      <p>Plain MV3 JavaScript, no build step, MIT licensed. One codebase for Chrome and Firefox.</p>
+      <p>Plain MV3 JavaScript, no build step, AGPL-3.0 licensed. One codebase for Chrome and Firefox.</p>
     </div>
   </div>
 </section>

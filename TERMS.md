@@ -31,8 +31,9 @@ their terms. Changes on their side may cause the extension to stop working.
 
 ## 4. Open source license
 
-The extension's source code is released under the MIT License (see
-[LICENSE](LICENSE)). Nothing in these terms limits the rights granted to you by that license.
+The extension's source code is released under the GNU Affero General Public License v3.0 (see
+[LICENSE](LICENSE); releases up to 0.9.6 were under the MIT License, reproduced at the end of that
+file). Nothing in these terms limits the rights granted to you by those licenses.
 
 ## 5. Disclaimer of warranty
 
