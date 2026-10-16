@@ -11,7 +11,7 @@
 #                                           previous build keeps storage. Chromium on Windows
 #                                           only accepts it when that id is policy-allowlisted.
 #
-# The staged manifest gets a fourth version component (0.9.4.<n>, n from
+# The staged manifest gets a fourth version component (<version>.<n>, n from
 # build/.n) so every build is an upgrade for the browser; the repo manifest is
 # untouched. File list comes from release.yml so the two stay equal.
 #
@@ -63,8 +63,9 @@ id=$(openssl rsa -in "$key" -pubout -outform DER 2>/dev/null | sha256sum | head 
     [ -f "$f" ] && echo "| $(basename "$f") | $(stat -c %s "$f") bytes, sha256 \`$(sha256sum "$f" | head -c 12)…\` |"
   done
   echo
-  echo "Vivaldi/Chrome apply an upgrade only once the extension is idle; the build reloads itself when the"
-  echo "update is pending, so closing the options tab is enough. Check the version at vivaldi://extensions → Details."
+  echo "Chromium browsers apply an upgrade only once the extension is idle; the build reloads itself when the"
+  echo "update is pending, so closing the options tab is enough. Check the version at chrome://extensions → Details"
+  echo "(or your browser's equivalent page)."
 } > build/BUILD.md
 echo "version $version  id $id  seed $seed"
 ls -l "build/$name.zip" "build/$name.crx" build/BUILD.md 2>/dev/null

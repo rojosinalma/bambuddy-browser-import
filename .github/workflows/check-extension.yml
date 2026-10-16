@@ -1,0 +1,36 @@
+name: Check extension
+
+# Syntax-checks the scripts and lints the packaged extension on every push and pull request,
+# so changes that do not bump the version (which release.yml skips) are still verified.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Syntax check
+        run: for f in *.js; do node --check "$f"; done
+
+      - name: Validate manifest
+        run: jq -e .version manifest.json
+
+      - name: Stage package
+        run: |
+          mkdir -p build/pkg
+          cp -r $(sed -n 's/^ *PACKAGE_FILES: *//p' .github/workflows/release.yml) build/pkg/
+
+      - name: Lint (web-ext)
+        run: npx --yes web-ext lint --source-dir build/pkg --warnings-as-errors=false

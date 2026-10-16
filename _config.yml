@@ -23,9 +23,11 @@ exclude:
   - options.html
   - options.css
   - scripts
-  - AGENTS.md
+  - bin
+  - build
+  - CONTRIBUTING.md
+  - "docs/*.md"
   - .github
-  - .openchamber
 
 defaults:
   - scope:

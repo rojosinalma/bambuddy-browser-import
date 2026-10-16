@@ -88,5 +88,5 @@ class: home
       </div>
     </div>
   </div>
-  <p class="note" style="margin-top:20px">Full documentation, troubleshooting and the changelog live in the <a href="{{ site.repo }}#readme">README on GitHub</a>. Issues and ideas: <a href="{{ site.repo }}/issues">issue tracker</a>.</p>
+  <p class="note" style="margin-top:20px">Documentation lives in the repository's <a href="{{ site.repo }}/tree/main/docs">docs/</a>: <a href="{{ site.repo }}/blob/main/docs/features.md">features</a>, <a href="{{ site.repo }}/blob/main/docs/usage.md">usage</a>, <a href="{{ site.repo }}/blob/main/docs/configuration.md">configuration</a>, <a href="{{ site.repo }}/blob/main/docs/security.md">security</a>, <a href="{{ site.repo }}/blob/main/docs/faq.md">FAQ</a>, <a href="{{ site.repo }}/blob/main/docs/troubleshooting.md">troubleshooting</a> and the <a href="{{ site.repo }}/blob/main/docs/SDD.md">design document</a>. Issues and ideas: <a href="{{ site.repo }}/issues">issue tracker</a>.</p>
 </section>
