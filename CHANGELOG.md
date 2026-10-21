@@ -10,9 +10,11 @@ the version is `version` in `manifest.json`.
 These changes are in `main` and ship with the next version bump (the stores receive a new build
 only when `manifest.json` changes).
 
+## [0.9.7] - 2026-10-21
+
 ### Changed
 
-- Licence: AGPL-3.0 from the next release on; the MIT notice for the inherited parts and for
+- Licence: AGPL-3.0 from this release on; the MIT notice for the inherited parts and for
   releases up to 0.9.6 stays at the end of `LICENSE`.
 - README reorganised: requirements with minimum versions, installation, usage, development,
   licence; topic documentation under `docs/`, design in `docs/SDD.md`.
@@ -106,7 +108,8 @@ First release under this name, prepared for the Chrome Web Store and addons.mozi
 - Started from [wolfrage76/Bambuddy-Extension](https://github.com/wolfrage76/Bambuddy-Extension)
   and reworked into an independent project.
 
-[Unreleased]: https://github.com/rojosinalma/bambuddy-browser-import/compare/v0.9.6...HEAD
+[Unreleased]: https://github.com/rojosinalma/bambuddy-browser-import/compare/v0.9.7...HEAD
+[0.9.7]: https://github.com/rojosinalma/bambuddy-browser-import/compare/v0.9.6...v0.9.7
 [0.9.6]: https://github.com/rojosinalma/bambuddy-browser-import/compare/v0.9.5...v0.9.6
 [0.9.5]: https://github.com/rojosinalma/bambuddy-browser-import/compare/v0.9.3...v0.9.5
 [0.9.4]: https://github.com/rojosinalma/bambuddy-browser-import/commit/ac8ac6e
