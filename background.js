@@ -58,6 +58,33 @@ async function bambuddyFetch(path, options = {}) {
   return response.json();
 }
 
+// ─── Session storage ─────────────────────────────────────────────────────────
+// chrome.storage.session has a fixed quota (10 MB in Chrome). The resolve cache
+// is the only part that grows with browsing, so it is what makes room when a
+// write is refused.
+
+async function sessionSet(items) {
+  try {
+    await chrome.storage.session.set(items);
+  } catch (err) {
+    const dropped = await pruneResolveCache({ all: true });
+    if (dropped === 0) throw err;
+    console.warn(`[bambuddy] session storage full (${err.message}); dropped ${dropped} cached models`);
+    await chrome.storage.session.set(items);
+  }
+}
+
+/** Remove expired `resolve:*` entries, or all of them. Returns how many went. */
+async function pruneResolveCache({ all = false } = {}) {
+  const ttlMs   = resolveTtlMs(await getSettings());
+  const now     = Date.now();
+  const entries = await chrome.storage.session.get(null);
+  const doomed  = Object.keys(entries).filter(k =>
+    k.startsWith(SESSION.RESOLVE) && (all || !(now - (entries[k]?.ts ?? 0) < ttlMs)));
+  if (doomed.length) await chrome.storage.session.remove(doomed);
+  return doomed.length;
+}
+
 // ─── Resolve cache ───────────────────────────────────────────────────────────
 // Resolving a model costs two MakerWorld round-trips inside Bambuddy (~0.5 s).
 // We resolve as soon as a model tab finishes loading so the popup opens with
@@ -65,14 +92,27 @@ async function bambuddyFetch(path, options = {}) {
 
 const inflightResolves = new Map();
 
+function resolveTtlMs(settings) {
+  return clamp(settings[STORAGE_KEYS.RESOLVE_TTL], LIMITS.RESOLVE_TTL, DEFAULTS[STORAGE_KEYS.RESOLVE_TTL]) * 1000;
+}
+
+/** Best effort: a cache that cannot be written must not fail the resolve. */
+async function cacheResolve(key, data) {
+  try {
+    await pruneResolveCache();
+    await sessionSet({ [key]: { ts: Date.now(), data } });
+  } catch (err) {
+    console.warn('[bambuddy] resolve not cached:', err.message);
+  }
+}
+
 async function resolveModel(url, { force = false } = {}) {
   const modelId = modelIdFromUrl(url);
   if (modelId === null) throw new Error('Not a MakerWorld model URL');
 
   const key = `${SESSION.RESOLVE}${modelId}`;
   if (!force) {
-    const settings = await getSettings();
-    const ttlMs = clamp(settings[STORAGE_KEYS.RESOLVE_TTL], LIMITS.RESOLVE_TTL, DEFAULTS[STORAGE_KEYS.RESOLVE_TTL]) * 1000;
+    const ttlMs  = resolveTtlMs(await getSettings());
     const cached = (await chrome.storage.session.get(key))[key];
     if (cached && Date.now() - cached.ts < ttlMs) return { ...cached.data, _cached: true };
   }
@@ -88,7 +128,7 @@ async function resolveModel(url, { force = false } = {}) {
         method: 'POST',
         body:   JSON.stringify({ url: cleanUrl })
       });
-      await chrome.storage.session.set({ [key]: { ts: Date.now(), data } });
+      await cacheResolve(key, data);
       return data;
     } finally {
       inflightResolves.delete(modelId);
@@ -118,7 +158,11 @@ async function listFolders({ force = false } = {}) {
     if (cached && Date.now() - cached.ts < FOLDERS_TTL_MS) return cached.tree;
   }
   const tree = await bambuddyFetch('/api/v1/library/folders');
-  await chrome.storage.session.set({ [SESSION.FOLDERS]: { ts: Date.now(), tree } });
+  try {
+    await sessionSet({ [SESSION.FOLDERS]: { ts: Date.now(), tree } });
+  } catch (err) {
+    console.warn('[bambuddy] folders not cached:', err.message);
+  }
   return tree;
 }
 
@@ -146,7 +190,7 @@ async function getJob(modelId) {
 }
 
 async function saveJob(job) {
-  await chrome.storage.session.set({ [jobKey(job.modelId)]: job });
+  await sessionSet({ [jobKey(job.modelId)]: job });
 }
 
 async function startImport({ modelId, title, folderId, items, tabId }) {
