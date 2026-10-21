@@ -39,7 +39,7 @@ jobs:
           import base64, hashlib, hmac, json, os, pathlib, time, urllib.error, urllib.request, uuid
 
           CAPTIONS = {
-              "1-search-panel.png":  "Pick plates and a folder right from the MakerWorld search results",
+              "1-search-panel.png":  "Pick plates and a folder right from the search results",
               "2-model-panel.png":   "Or from the Import to Bambuddy button on a model page",
               "3-settings.png":      "Point it at your Bambuddy and test the connection",
               "4-toolbar-popup.jpg": "The toolbar popup on a model page: print time, colours, AMS and rating per profile",
