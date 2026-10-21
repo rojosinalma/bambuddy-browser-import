@@ -27,6 +27,12 @@ only when `manifest.json` changes).
   review has cleared.
 - Workflow run names show the version, the actor and the commit or release.
 
+### Fixed
+
+- "Session storage quota bytes exceeded" no longer blocks a model from loading or importing. The
+  model cache now drops expired entries as it goes, and makes room when the browser's session
+  storage is full; a model that cannot be cached still loads.
+
 ## [0.9.6] - 2026-10-13
 
 ### Changed

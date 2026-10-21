@@ -51,9 +51,14 @@ Everything is in extension storage; there is no database and no file I/O.
 
 | Key | Value | Lifetime |
 |---|---|---|
-| `resolve:<modelId>` | `{ ts, data }` — Bambuddy's resolve response for a model | `resolveCacheTtl` seconds |
+| `resolve:<modelId>` | `{ ts, data }` — Bambuddy's resolve response for a model | `resolveCacheTtl` seconds; expired entries are removed before each new one is written |
 | `folders` | `{ ts, tree }` — the library folder tree | 60 s, dropped after a folder is created or an import finishes |
 | `job:<modelId>` | an `ImportJob` | until `clearJob` or browser exit |
+
+The session area has a fixed quota (10 MB in Chrome). Every write goes through `sessionSet()`: when
+the browser refuses a write, it drops all `resolve:*` entries and tries once more. Cache writes
+(`resolve:*`, `folders`) are best effort — a write that still fails is logged and the data is
+returned anyway; only a job save that still fails is an error.
 
 An `ImportJob` is `{ modelId, title, folderId, tabId, status: running|done|failed, startedAt,
 finishedAt, openUrl, items: [{ instanceId, profileId, name, status: pending|running|done|exists|error,
