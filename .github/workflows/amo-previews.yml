@@ -25,7 +25,7 @@ jobs:
           AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
         shell: python
         run: |
-          import base64, hashlib, hmac, json, os, pathlib, time, urllib.request, uuid
+          import base64, hashlib, hmac, json, os, pathlib, time, urllib.error, urllib.request, uuid
 
           CAPTIONS = {
               "1-search-bubbles.png": "An import bubble on every thumbnail in MakerWorld search results",
@@ -48,12 +48,21 @@ jobs:
               return f"JWT {head}.{body}.{b64(sig)}"
 
           def call(method, url, data=None, ctype=None):
-              req = urllib.request.Request(url, data=data, method=method, headers={"Authorization": token()})
-              if ctype:
-                  req.add_header("Content-Type", ctype)
-              with urllib.request.urlopen(req) as r:
-                  raw = r.read()
-                  return json.loads(raw) if raw else None
+              # AMO answers 429 to bursts; wait as told and try again.
+              for attempt in range(8):
+                  req = urllib.request.Request(url, data=data, method=method, headers={"Authorization": token()})
+                  if ctype:
+                      req.add_header("Content-Type", ctype)
+                  try:
+                      with urllib.request.urlopen(req) as r:
+                          raw = r.read()
+                          return json.loads(raw) if raw else None
+                  except urllib.error.HTTPError as e:
+                      if e.code != 429 or attempt == 7:
+                          raise SystemExit(f"{method} {url}: HTTP {e.code} {e.read()[:300]!r}")
+                      wait = int(e.headers.get("Retry-After") or 0) or 15 * (attempt + 1)
+                      print(f"429 on {method}, waiting {wait}s")
+                      time.sleep(wait)
 
           files = sorted(pathlib.Path("docs/screenshots").glob("*.png"))
           missing = [f.name for f in files if f.name not in CAPTIONS]
