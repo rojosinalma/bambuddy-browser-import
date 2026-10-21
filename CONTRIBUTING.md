@@ -106,7 +106,10 @@ release `v<version>` already exists it stops with a notice, otherwise it:
    and the unsigned `-firefox.xpi`;
 3. submits the Firefox package to addons.mozilla.org (`AMO_JWT_ISSUER` / `AMO_JWT_SECRET`; listed
    channel, so AMO signs and distributes it after review);
-4. creates the GitHub release `v<version>` with generated notes and all packages attached;
+4. tags the commit `v<version>`, signed with the release key (`TAG_SIGNING_KEY`: an armored GPG
+   private key without passphrase; the tagger is the key's user ID), and creates the GitHub release
+   from that tag with generated notes and all packages attached. Without the secret, the release
+   gets a plain tag;
 5. uploads the `.crx` to the Chrome Web Store item and submits it for review
    (`CWS_CLIENT_ID` / `CWS_CLIENT_SECRET` / `CWS_REFRESH_TOKEN`). This step is non-fatal: the store
    refuses an upload while the previous version is still in review.

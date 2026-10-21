@@ -10,6 +10,10 @@ the version is `version` in `manifest.json`.
 These changes are in `main` and ship with the next version bump (the stores receive a new build
 only when `manifest.json` changes).
 
+### Added
+
+- Release tags are GPG-signed by the release workflow.
+
 ## [0.9.7] - 2026-10-21
 
 ### Changed

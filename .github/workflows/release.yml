@@ -109,12 +109,41 @@ jobs:
             --api-key "$AMO_JWT_ISSUER" \
             --api-secret "$AMO_JWT_SECRET"
 
+      # Signs the release tag with the project's release key (repo secret TAG_SIGNING_KEY,
+      # armored private key without passphrase); the tagger is the key's user ID. A tag left
+      # by an earlier failed run is reused. Without the secret, gh creates a plain tag.
+      - name: Sign tag
+        id: tag
+        if: steps.exists.outputs.skip == 'false' && env.TAG_SIGNING_KEY != ''
+        env:
+          TAG_SIGNING_KEY: ${{ secrets.TAG_SIGNING_KEY }}
+          TAG:             ${{ steps.meta.outputs.tag }}
+        run: |
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null; then
+            echo "::notice::$TAG already exists on origin; reusing it."
+          else
+            export GNUPGHOME="$RUNNER_TEMP/gnupg"
+            mkdir -m 700 "$GNUPGHOME"
+            printf '%s\n' "$TAG_SIGNING_KEY" | gpg --batch --quiet --import
+            FPR=$(gpg --list-secret-keys --with-colons | awk -F: '/^fpr/ { print $10; exit }')
+            KEY_UID=$(gpg --list-secret-keys --with-colons | awk -F: '/^uid/ { print $10; exit }')
+            git -c user.name="$(sed -E 's/ *(\(.*\))? *<.*//' <<<"$KEY_UID")" \
+                -c user.email="$(sed -E 's/.*<(.*)>.*/\1/' <<<"$KEY_UID")" \
+                -c user.signingkey="$FPR" \
+                tag -s "$TAG" -m "$TAG" "$GITHUB_SHA"
+            git verify-tag "$TAG"
+            git push origin "refs/tags/$TAG"
+            rm -rf "$GNUPGHOME"
+          fi
+          echo "signed=true" >> "$GITHUB_OUTPUT"
+
       - name: Create release
         if: steps.exists.outputs.skip == 'false'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "${{ steps.meta.outputs.tag }}" \
+            ${{ steps.tag.outputs.signed == 'true' && '--verify-tag' || '' }} \
             build/*.zip build/*.crx build/*.xpi \
             --title "${{ steps.meta.outputs.tag }}" \
             --generate-notes \
