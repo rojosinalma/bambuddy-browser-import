@@ -1,17 +1,23 @@
 name: AMO screenshots
 run-name: AMO screenshots · ${{ github.actor }}
 
-# Replaces the screenshots on the addons.mozilla.org listing with docs/screenshots/*.png, in file
-# name order, each with the caption from the list below. Listing images are not part of the
-# extension, so this needs no version bump and no review.
+# Makes the screenshots on the addons.mozilla.org listing match docs/screenshots/ (*.png, *.jpg),
+# in file name order, each with the caption from the list below. Listing images are not part of
+# the extension, so this needs no version bump and no review.
+#
+# AMO limits uploads per hour. When some of the files are already on the listing, pass their
+# preview ids in `keep` (one entry per file, in file name order, empty for a file that still has
+# to be uploaded, e.g. "431370,431406,431407,"). Previews not listed are deleted, the rest get
+# their position and caption set.
 
 on:
   workflow_dispatch:
     inputs:
-      captions_only:
-        description: Only set the captions on the previews already on AMO (no upload)
-        type: boolean
-        default: false
+      keep:
+        description: Preview ids to keep, one per file in name order, empty = upload (blank = replace all)
+        type: string
+        default: ''
+
 permissions:
   contents: read
 
@@ -23,22 +29,22 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Replace previews
+      - name: Sync previews
         env:
           AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
           AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
-          CAPTIONS_ONLY:  ${{ inputs.captions_only }}
+          KEEP:           ${{ inputs.keep }}
         shell: python
         run: |
           import base64, hashlib, hmac, json, os, pathlib, time, urllib.error, urllib.request, uuid
 
           CAPTIONS = {
-              "1-search-bubbles.png": "An import bubble on every thumbnail in MakerWorld search results",
-              "2-search-panel.png":   "Pick plates and a folder right from the search results",
-              "3-model-button.png":   "Import to Bambuddy, right next to Open in Bambu Studio",
-              "4-model-panel.png":    "The picker on a model page: print time, colours, rating and printer per profile",
-              "5-settings.png":       "Point it at your Bambuddy and test the connection",
+              "1-search-panel.png":  "Pick plates and a folder right from the MakerWorld search results",
+              "2-model-panel.png":   "Or from the Import to Bambuddy button on a model page",
+              "3-settings.png":      "Point it at your Bambuddy and test the connection",
+              "4-toolbar-popup.jpg": "The toolbar popup on a model page: print time, colours, AMS and rating per profile",
           }
+          TYPES = {".png": "image/png", ".jpg": "image/jpeg"}
           API = f"https://addons.mozilla.org/api/v5/addons/addon/{os.environ['AMO_ADDON']}/previews/"
 
           def b64(b):
@@ -69,41 +75,42 @@ jobs:
                       print(f"429 on {method}, waiting {wait}s")
                       time.sleep(wait)
 
-          files = sorted(pathlib.Path("docs/screenshots").glob("*.png"))
+          def edit(preview_id, name, pos):
+              want = {"position": pos, "caption": {"en-US": CAPTIONS[name]}}
+              done = call("PATCH", f"{API}{preview_id}/", json.dumps(want).encode(), "application/json") or {}
+              if done.get("caption", {}).get("en-US") != CAPTIONS[name] or done.get("position") != pos:
+                  raise SystemExit(f"position/caption not stored on preview {preview_id}: {done!r}")
+
+          files = sorted(f for f in pathlib.Path("docs/screenshots").iterdir() if f.suffix in TYPES)
           missing = [f.name for f in files if f.name not in CAPTIONS]
           if not files or missing:
               raise SystemExit(f"no screenshots, or no caption for: {missing}")
 
-          def set_caption(preview_id, name):
-              done = call("PATCH", f"{API}{preview_id}/",
-                          json.dumps({"caption": {"en-US": CAPTIONS[name]}}).encode(), "application/json")
-              if (done or {}).get("caption", {}).get("en-US") != CAPTIONS[name]:
-                  raise SystemExit(f"caption not stored on preview {preview_id}: {done!r}")
+          keep = [k.strip() for k in os.environ["KEEP"].split(",")] if os.environ["KEEP"].strip() else [""] * len(files)
+          if len(keep) != len(files):
+              raise SystemExit(f"keep has {len(keep)} entries, there are {len(files)} files")
 
           addon = call("GET", API.rsplit("previews/", 1)[0])
+          on_amo = {str(p["id"]) for p in addon["previews"]}
+          unknown = [k for k in keep if k and k not in on_amo]
+          if unknown:
+              raise SystemExit(f"not on the listing: {unknown}")
 
-          if os.environ["CAPTIONS_ONLY"] == "true":
-              current = sorted(addon["previews"], key=lambda p: p["position"])
-              if len(current) != len(files):
-                  raise SystemExit(f"{len(current)} previews on AMO, {len(files)} files; run without captions_only")
-              for p, f in zip(current, files):
-                  set_caption(p["id"], f.name)
-                  print(f"{p['position']}: caption for {f.name} on preview {p['id']}")
-              raise SystemExit(0)
+          for pid in sorted(on_amo - set(keep)):
+              call("DELETE", f"{API}{pid}/")
+              print(f"deleted preview {pid}")
 
-          for p in addon["previews"]:
-              call("DELETE", f"{API}{p['id']}/")
-              print(f"deleted preview {p['id']}")
-
-          for pos, f in enumerate(files):
-              boundary = uuid.uuid4().hex
-              body = b"".join([
-                  f"--{boundary}\r\nContent-Disposition: form-data; name=\"position\"\r\n\r\n{pos}\r\n".encode(),
-                  f"--{boundary}\r\nContent-Disposition: form-data; name=\"image\"; filename=\"{f.name}\"\r\n"
-                  "Content-Type: image/png\r\n\r\n".encode(),
-                  f.read_bytes(),
-                  f"\r\n--{boundary}--\r\n".encode(),
-              ])
-              preview = call("POST", API, body, f"multipart/form-data; boundary={boundary}")
-              set_caption(preview["id"], f.name)
-              print(f"{pos}: {f.name} -> preview {preview['id']}")
+          for pos, (f, pid) in enumerate(zip(files, keep)):
+              if not pid:
+                  boundary = uuid.uuid4().hex
+                  body = b"".join([
+                      f"--{boundary}\r\nContent-Disposition: form-data; name=\"position\"\r\n\r\n{pos}\r\n".encode(),
+                      f"--{boundary}\r\nContent-Disposition: form-data; name=\"image\"; filename=\"{f.name}\"\r\n"
+                      f"Content-Type: {TYPES[f.suffix]}\r\n\r\n".encode(),
+                      f.read_bytes(),
+                      f"\r\n--{boundary}--\r\n".encode(),
+                  ])
+                  pid = call("POST", API, body, f"multipart/form-data; boundary={boundary}")["id"]
+                  print(f"uploaded {f.name} as preview {pid}")
+              edit(pid, f.name, pos)
+              print(f"{pos}: {f.name} on preview {pid}")

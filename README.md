@@ -5,12 +5,12 @@
 [![Latest release](https://img.shields.io/github/v/release/rojosinalma/bambuddy-browser-import)](https://github.com/rojosinalma/bambuddy-browser-import/releases/latest)
 [![License](https://img.shields.io/github/license/rojosinalma/bambuddy-browser-import)](LICENSE)
 
-![The import picker opened from a thumbnail in MakerWorld search results: print profiles with print time, colours, rating and printer, folder picker and the import button](docs/screenshots/2-search-panel.png)
+![The toolbar popup open on a MakerWorld model page: print profiles with print time, colours, AMS and rating, folder picker and the import button](docs/screenshots/4-toolbar-popup.jpg)
 
 | | | |
 |---|---|---|
-| ![Import bubbles on every thumbnail in MakerWorld search results](docs/screenshots/1-search-bubbles.png) | ![The Import to Bambuddy button under Open in Bambu Studio on a model page](docs/screenshots/3-model-button.png) | ![The import picker opened from the button on a model page](docs/screenshots/4-model-panel.png) |
-| Import from any thumbnail | Or from the model page | Pick plates and a folder |
+| ![The import picker opened from a thumbnail in MakerWorld search results](docs/screenshots/1-search-panel.png) | ![The import picker opened from the Import to Bambuddy button on a model page](docs/screenshots/2-model-panel.png) | ![The settings page after a successful connection test](docs/screenshots/3-settings.png) |
+| Import from the search results | Or from the model page | Connect to your Bambuddy |
 
 Import MakerWorld print profiles into your [Bambuddy](https://github.com/maziggy/bambuddy) library
 from the browser — pick the plates, pick the folder, one click. Works in Chrome and Firefox from the

@@ -13,9 +13,9 @@ only when `manifest.json` changes).
 ### Added
 
 - Release tags are GPG-signed by the release workflow.
-- New screenshots on the site, in the README and in both stores: import bubbles in search results,
-  the picker, the model-page button and the settings page.
-- `amo-previews` workflow: replace the AMO listing screenshots with `docs/screenshots/`.
+- New screenshots on the site, in the README and in both stores: the picker from the search
+  results and from a model page, and the settings page; the toolbar popup stays as the main image.
+- `amo-previews` workflow: sync the AMO listing screenshots with `docs/screenshots/`.
 
 ## [0.9.7] - 2026-10-21
 

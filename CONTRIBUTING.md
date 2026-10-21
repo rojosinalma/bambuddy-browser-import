@@ -123,7 +123,8 @@ store access.
 Two manual workflows cover the Chrome Web Store side: **Chrome Web Store status** (`cws-status.yml`)
 shows the item's draft state, and **Chrome Web Store upload** (`cws-upload.yml`, input: a release tag)
 re-uploads that release's `.crx` once an earlier review has cleared. **AMO screenshots**
-(`amo-previews.yml`) replaces the screenshots on the AMO listing with `docs/screenshots/*.png`, in
-file name order; each file needs a caption in the workflow. The Chrome Web Store API cannot set
-screenshots, so the same files go up by hand in the developer dashboard (Store listing →
-Screenshots).
+(`amo-previews.yml`) makes the screenshots on the AMO listing match `docs/screenshots/` (PNG and
+JPG), in file name order; each file needs a caption in the workflow. AMO limits uploads per hour,
+so the `keep` input lists the preview ids of files that are already up and only the rest get
+uploaded. The Chrome Web Store API cannot set screenshots, so the same files go up by hand in the
+developer dashboard (Store listing → Screenshots).

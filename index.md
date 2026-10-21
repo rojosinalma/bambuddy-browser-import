@@ -24,7 +24,7 @@ class: home
     </div>
   </div>
   <div class="hero-shot">
-    <img src="{{ '/docs/screenshots/2-search-panel.png' | relative_url }}" alt="The import picker opened from a thumbnail in MakerWorld search results: print profiles, folder picker and the import button">
+    <img src="{{ '/docs/screenshots/4-toolbar-popup.jpg' | relative_url }}" alt="The toolbar popup open on a MakerWorld model page: print profiles, folder picker and the import button">
   </div>
 </div>
 
@@ -32,20 +32,16 @@ class: home
   <h2>See it in action</h2>
   <p class="sub">Import from search results, from the model page or from the toolbar.</p>
   <div class="gallery">
-    <a href="{{ '/docs/screenshots/1-search-bubbles.png' | relative_url }}"><figure>
-      <img src="{{ '/docs/screenshots/1-search-bubbles.png' | relative_url }}" alt="Import bubbles on every thumbnail in MakerWorld search results" loading="lazy">
-      <figcaption>An import bubble on every thumbnail</figcaption>
+    <a href="{{ '/docs/screenshots/1-search-panel.png' | relative_url }}"><figure>
+      <img src="{{ '/docs/screenshots/1-search-panel.png' | relative_url }}" alt="The import picker opened from a thumbnail in MakerWorld search results" loading="lazy">
+      <figcaption>Import straight from the search results</figcaption>
     </figure></a>
-    <a href="{{ '/docs/screenshots/3-model-button.png' | relative_url }}"><figure>
-      <img src="{{ '/docs/screenshots/3-model-button.png' | relative_url }}" alt="The Import to Bambuddy button under Open in Bambu Studio on a model page" loading="lazy">
-      <figcaption>Import to Bambuddy, right next to Open in Bambu Studio</figcaption>
+    <a href="{{ '/docs/screenshots/2-model-panel.png' | relative_url }}"><figure>
+      <img src="{{ '/docs/screenshots/2-model-panel.png' | relative_url }}" alt="The import picker opened from the Import to Bambuddy button on a model page" loading="lazy">
+      <figcaption>Or from the button on the model page</figcaption>
     </figure></a>
-    <a href="{{ '/docs/screenshots/4-model-panel.png' | relative_url }}"><figure>
-      <img src="{{ '/docs/screenshots/4-model-panel.png' | relative_url }}" alt="The import picker opened from the button on a model page" loading="lazy">
-      <figcaption>Pick the plates and the folder without leaving the page</figcaption>
-    </figure></a>
-    <a href="{{ '/docs/screenshots/5-settings.png' | relative_url }}"><figure>
-      <img src="{{ '/docs/screenshots/5-settings.png' | relative_url }}" alt="The settings page after a successful connection test" loading="lazy">
+    <a href="{{ '/docs/screenshots/3-settings.png' | relative_url }}"><figure>
+      <img src="{{ '/docs/screenshots/3-settings.png' | relative_url }}" alt="The settings page after a successful connection test" loading="lazy">
       <figcaption>Point it at your Bambuddy and test the connection</figcaption>
     </figure></a>
   </div>
