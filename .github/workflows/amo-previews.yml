@@ -7,7 +7,11 @@ run-name: AMO screenshots · ${{ github.actor }}
 
 on:
   workflow_dispatch:
-
+    inputs:
+      captions_only:
+        description: Only set the captions on the previews already on AMO (no upload)
+        type: boolean
+        default: false
 permissions:
   contents: read
 
@@ -23,6 +27,7 @@ jobs:
         env:
           AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
           AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+          CAPTIONS_ONLY:  ${{ inputs.captions_only }}
         shell: python
         run: |
           import base64, hashlib, hmac, json, os, pathlib, time, urllib.error, urllib.request, uuid
@@ -69,7 +74,23 @@ jobs:
           if not files or missing:
               raise SystemExit(f"no screenshots, or no caption for: {missing}")
 
+          def set_caption(preview_id, name):
+              done = call("PATCH", f"{API}{preview_id}/",
+                          json.dumps({"caption": {"en-US": CAPTIONS[name]}}).encode(), "application/json")
+              if (done or {}).get("caption", {}).get("en-US") != CAPTIONS[name]:
+                  raise SystemExit(f"caption not stored on preview {preview_id}: {done!r}")
+
           addon = call("GET", API.rsplit("previews/", 1)[0])
+
+          if os.environ["CAPTIONS_ONLY"] == "true":
+              current = sorted(addon["previews"], key=lambda p: p["position"])
+              if len(current) != len(files):
+                  raise SystemExit(f"{len(current)} previews on AMO, {len(files)} files; run without captions_only")
+              for p, f in zip(current, files):
+                  set_caption(p["id"], f.name)
+                  print(f"{p['position']}: caption for {f.name} on preview {p['id']}")
+              raise SystemExit(0)
+
           for p in addon["previews"]:
               call("DELETE", f"{API}{p['id']}/")
               print(f"deleted preview {p['id']}")
@@ -84,6 +105,5 @@ jobs:
                   f"\r\n--{boundary}--\r\n".encode(),
               ])
               preview = call("POST", API, body, f"multipart/form-data; boundary={boundary}")
-              call("PATCH", f"{API}{preview['id']}/",
-                   json.dumps({"caption": {"en-US": CAPTIONS[f.name]}}).encode(), "application/json")
+              set_caption(preview["id"], f.name)
               print(f"{pos}: {f.name} -> preview {preview['id']}")
