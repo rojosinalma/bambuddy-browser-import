@@ -24,9 +24,32 @@ class: home
     </div>
   </div>
   <div class="hero-shot">
-    <img src="{{ '/docs/screenshot.jpg' | relative_url }}" alt="The popup open on a MakerWorld model page: profile cards, folder picker and the import button">
+    <img src="{{ '/docs/screenshots/2-search-panel.png' | relative_url }}" alt="The import picker opened from a thumbnail in MakerWorld search results: print profiles, folder picker and the import button">
   </div>
 </div>
+
+<section id="screenshots">
+  <h2>See it in action</h2>
+  <p class="sub">Import from search results, from the model page or from the toolbar.</p>
+  <div class="gallery">
+    <a href="{{ '/docs/screenshots/1-search-bubbles.png' | relative_url }}"><figure>
+      <img src="{{ '/docs/screenshots/1-search-bubbles.png' | relative_url }}" alt="Import bubbles on every thumbnail in MakerWorld search results" loading="lazy">
+      <figcaption>An import bubble on every thumbnail</figcaption>
+    </figure></a>
+    <a href="{{ '/docs/screenshots/3-model-button.png' | relative_url }}"><figure>
+      <img src="{{ '/docs/screenshots/3-model-button.png' | relative_url }}" alt="The Import to Bambuddy button under Open in Bambu Studio on a model page" loading="lazy">
+      <figcaption>Import to Bambuddy, right next to Open in Bambu Studio</figcaption>
+    </figure></a>
+    <a href="{{ '/docs/screenshots/4-model-panel.png' | relative_url }}"><figure>
+      <img src="{{ '/docs/screenshots/4-model-panel.png' | relative_url }}" alt="The import picker opened from the button on a model page" loading="lazy">
+      <figcaption>Pick the plates and the folder without leaving the page</figcaption>
+    </figure></a>
+    <a href="{{ '/docs/screenshots/5-settings.png' | relative_url }}"><figure>
+      <img src="{{ '/docs/screenshots/5-settings.png' | relative_url }}" alt="The settings page after a successful connection test" loading="lazy">
+      <figcaption>Point it at your Bambuddy and test the connection</figcaption>
+    </figure></a>
+  </div>
+</section>
 
 <section>
   <h2>What it does</h2>
@@ -84,7 +107,7 @@ class: home
     <div class="step">
       <div>
         <h3>Import from any model page</h3>
-        <p>Open a model on makerworld.com — the icon shows a green <strong>↓</strong>. Click it, select plates, pick a folder, <strong>Import</strong>. "Open in Bambuddy" takes you to the folder afterwards.</p>
+        <p>Click the bubble on any thumbnail, <strong>Import to Bambuddy</strong> on a model page, or the toolbar icon (it shows a green <strong>↓</strong> on model pages). Select plates, pick a folder, <strong>Import</strong>. "Open in Bambuddy" takes you to the folder afterwards.</p>
       </div>
     </div>
   </div>
