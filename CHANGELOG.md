@@ -10,6 +10,8 @@ the version is `version` in `manifest.json`.
 These changes are in `main` and ship with the next version bump (the stores receive a new build
 only when `manifest.json` changes).
 
+## [0.9.8] - 2026-11-11
+
 ### Added
 
 - Release tags are GPG-signed by the release workflow.
@@ -122,7 +124,8 @@ First release under this name, prepared for the Chrome Web Store and addons.mozi
 - Started from [wolfrage76/Bambuddy-Extension](https://github.com/wolfrage76/Bambuddy-Extension)
   and reworked into an independent project.
 
-[Unreleased]: https://github.com/rojosinalma/bambuddy-browser-import/compare/v0.9.7...HEAD
+[Unreleased]: https://github.com/rojosinalma/bambuddy-browser-import/compare/v0.9.8...HEAD
+[0.9.8]: https://github.com/rojosinalma/bambuddy-browser-import/compare/v0.9.7...v0.9.8
 [0.9.7]: https://github.com/rojosinalma/bambuddy-browser-import/compare/v0.9.6...v0.9.7
 [0.9.6]: https://github.com/rojosinalma/bambuddy-browser-import/compare/v0.9.5...v0.9.6
 [0.9.5]: https://github.com/rojosinalma/bambuddy-browser-import/compare/v0.9.3...v0.9.5
