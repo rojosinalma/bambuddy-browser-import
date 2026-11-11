@@ -12,6 +12,7 @@ const STORAGE_KEYS = {
   NOTIFY_ON_COMPLETE: 'notifyOnComplete',
   CONCURRENCY:        'importConcurrency',
   RESOLVE_TTL:        'resolveCacheTtl',
+  RESOLVE_MAX:        'resolveCacheMax',
   LAST_FOLDER_ID:     'lastFolderId'
 };
 
@@ -21,12 +22,14 @@ const DEFAULTS = {
   [STORAGE_KEYS.NOTIFY_ON_COMPLETE]: true,
   [STORAGE_KEYS.CONCURRENCY]:        3,
   [STORAGE_KEYS.RESOLVE_TTL]:        300,
+  [STORAGE_KEYS.RESOLVE_MAX]:        200,
   [STORAGE_KEYS.LAST_FOLDER_ID]:     null
 };
 
 const LIMITS = {
   CONCURRENCY: { min: 1, max: 6 },
-  RESOLVE_TTL: { min: 30, max: 3600 }
+  RESOLVE_TTL: { min: 30, max: 3600 },
+  RESOLVE_MAX: { min: 10, max: 1000 }
 };
 
 /** Session-storage key prefixes (chrome.storage.session — cleared on browser exit). */

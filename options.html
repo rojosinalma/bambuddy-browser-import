@@ -117,6 +117,16 @@
     <div class="field">
       <div class="toggle-row">
         <div class="toggle-info">
+          <div class="toggle-label">Models kept in cache</div>
+          <div class="field-hint">How many resolved models are kept at most; the oldest makes room for a new one.</div>
+        </div>
+        <input type="number" id="resolve-max" class="num-input" min="10" max="1000" step="10" value="200">
+      </div>
+    </div>
+
+    <div class="field">
+      <div class="toggle-row">
+        <div class="toggle-info">
           <div class="toggle-label">Show "Open in Bambuddy" after import</div>
           <div class="field-hint">Display a button that opens the target folder in Bambuddy's File Manager after an import.</div>
         </div>

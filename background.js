@@ -60,8 +60,9 @@ async function bambuddyFetch(path, options = {}) {
 
 // ─── Session storage ─────────────────────────────────────────────────────────
 // chrome.storage.session has a fixed quota (10 MB in Chrome). The resolve cache
-// is the only part that grows with browsing, so it is what makes room when a
-// write is refused.
+// is the only part that grows with browsing: entries are slimmed to what the
+// popup reads and capped in number, and it is what makes room when a write is
+// refused anyway.
 
 async function sessionSet(items) {
   try {
@@ -69,18 +70,32 @@ async function sessionSet(items) {
   } catch (err) {
     const dropped = await pruneResolveCache({ all: true });
     if (dropped === 0) throw err;
-    console.warn(`[bambuddy] session storage full (${err.message}); dropped ${dropped} cached models`);
+    console.debug(`[bambuddy] session storage full (${err.message}); dropped ${dropped} cached models`);
     await chrome.storage.session.set(items);
   }
 }
 
-/** Remove expired `resolve:*` entries, or all of them. Returns how many went. */
-async function pruneResolveCache({ all = false } = {}) {
-  const ttlMs   = resolveTtlMs(await getSettings());
-  const now     = Date.now();
-  const entries = await chrome.storage.session.get(null);
-  const doomed  = Object.keys(entries).filter(k =>
-    k.startsWith(SESSION.RESOLVE) && (all || !(now - (entries[k]?.ts ?? 0) < ttlMs)));
+/**
+ * Remove expired `resolve:*` entries and the oldest beyond the configured
+ * maximum, leaving room for `room` new ones; or remove all of them.
+ * Returns how many went.
+ */
+async function pruneResolveCache({ all = false, room = 0 } = {}) {
+  const settings = await getSettings();
+  const ttlMs    = resolveTtlMs(settings);
+  const max      = clamp(settings[STORAGE_KEYS.RESOLVE_MAX], LIMITS.RESOLVE_MAX, DEFAULTS[STORAGE_KEYS.RESOLVE_MAX]);
+  const now      = Date.now();
+  const entries  = await chrome.storage.session.get(null);
+  const cached   = Object.keys(entries).filter(k => k.startsWith(SESSION.RESOLVE));
+
+  const doomed = [];
+  const live   = [];
+  for (const k of cached) {
+    if (all || !(now - (entries[k]?.ts ?? 0) < ttlMs)) doomed.push(k); else live.push(k);
+  }
+  live.sort((a, b) => (entries[a]?.ts ?? 0) - (entries[b]?.ts ?? 0));
+  doomed.push(...live.slice(0, Math.max(0, live.length - (max - room))));
+
   if (doomed.length) await chrome.storage.session.remove(doomed);
   return doomed.length;
 }
@@ -96,10 +111,38 @@ function resolveTtlMs(settings) {
   return clamp(settings[STORAGE_KEYS.RESOLVE_TTL], LIMITS.RESOLVE_TTL, DEFAULTS[STORAGE_KEYS.RESOLVE_TTL]) * 1000;
 }
 
+/**
+ * Bambuddy's resolve response carries MakerWorld's whole design object (every
+ * plate of every profile), often hundreds of KB. Keep only what the popup
+ * reads (popup.js: renderCards, buildChips, boot); plates only as a count.
+ */
+function slimResolve(d) {
+  const pick = (o, keys) => Object.fromEntries(keys.filter(k => o?.[k] !== undefined).map(k => [k, o[k]]));
+  const design = d?.design ?? {};
+  return {
+    ...pick(d, ['model_id', 'profile_id']),
+    design: {
+      ...pick(design, ['title', 'coverUrl', 'cover_url']),
+      instances: (Array.isArray(design.instances) ? design.instances : []).map(i => {
+        const mi = i?.extention?.modelInfo ?? {};
+        return {
+          ...pick(i, ['id', 'profileId', 'title', 'cover', 'isDefault', 'prediction', 'materialCnt',
+                      'needAms', 'ratingScoreTotal', 'ratingCount', 'rating', 'plateCount', 'totalPlate']),
+          extention: { modelInfo: {
+            ...(Array.isArray(mi.plates) ? { plates: mi.plates.map(() => 0) } : {}),
+            ...pick(mi, ['compatibility'])
+          } }
+        };
+      })
+    },
+    instances: (Array.isArray(d?.instances) ? d.instances : []).map(h => pick(h, ['id', 'compatibility']))
+  };
+}
+
 /** Best effort: a cache that cannot be written must not fail the resolve. */
 async function cacheResolve(key, data) {
   try {
-    await pruneResolveCache();
+    await pruneResolveCache({ room: 1 });
     await sessionSet({ [key]: { ts: Date.now(), data } });
   } catch (err) {
     console.warn('[bambuddy] resolve not cached:', err.message);
@@ -124,10 +167,10 @@ async function resolveModel(url, { force = false } = {}) {
       // Strip the hash: the profile hint is derived client-side, and a
       // hash-free URL keeps one cache entry per model.
       const cleanUrl = url.split('#')[0];
-      const data = await bambuddyFetch('/api/v1/makerworld/resolve', {
+      const data = slimResolve(await bambuddyFetch('/api/v1/makerworld/resolve', {
         method: 'POST',
         body:   JSON.stringify({ url: cleanUrl })
-      });
+      }));
       await cacheResolve(key, data);
       return data;
     } finally {

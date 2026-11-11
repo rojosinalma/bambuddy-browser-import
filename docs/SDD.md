@@ -45,20 +45,26 @@ Everything is in extension storage; there is no database and no file I/O.
 
 **`chrome.storage.local`** (persists, plaintext on disk) — settings keyed by `STORAGE_KEYS`:
 `bambuddyUrl`, `apiKey`, `showOpenBtn`, `pageButtons`, `notifyOnComplete`, `importConcurrency`
-(1–6, default 3), `resolveCacheTtl` (30–3600 s, default 300), `lastFolderId`.
+(1–6, default 3), `resolveCacheTtl` (30–3600 s, default 300), `resolveCacheMax` (10–1000, default
+200), `lastFolderId`.
 
 **`chrome.storage.session`** (cleared when the browser exits):
 
 | Key | Value | Lifetime |
 |---|---|---|
-| `resolve:<modelId>` | `{ ts, data }` — Bambuddy's resolve response for a model | `resolveCacheTtl` seconds; expired entries are removed before each new one is written |
+| `resolve:<modelId>` | `{ ts, data }` — Bambuddy's resolve response for a model, slimmed to the fields the popup reads | `resolveCacheTtl` seconds, at most `resolveCacheMax` entries; expired and oldest entries are removed before each new one is written |
 | `folders` | `{ ts, tree }` — the library folder tree | 60 s, dropped after a folder is created or an import finishes |
 | `job:<modelId>` | an `ImportJob` | until `clearJob` or browser exit |
 
-The session area has a fixed quota (10 MB in Chrome). Every write goes through `sessionSet()`: when
-the browser refuses a write, it drops all `resolve:*` entries and tries once more. Cache writes
-(`resolve:*`, `folders`) are best effort — a write that still fails is logged and the data is
-returned anyway; only a job save that still fails is an error.
+The session area has a fixed quota (10 MB in Chrome), and browsing alone resolves every model page
+opened and every thumbnail bubble hovered. The raw resolve response carries MakerWorld's whole design
+object (every plate of every profile, often hundreds of KB), so `slimResolve()` keeps only the design
+title and cover, per profile the fields behind the card and its chips (plates as a count only), and
+the per-instance compatibility — a few KB per model. Cached and fresh responses have the same shape.
+Every write goes through `sessionSet()`: when the browser still refuses a write, it drops all
+`resolve:*` entries and tries once more. Cache writes (`resolve:*`, `folders`) are best effort — a
+write that still fails is logged as a warning and the data is returned anyway; only a job save that
+still fails is an error.
 
 An `ImportJob` is `{ modelId, title, folderId, tabId, status: running|done|failed, startedAt,
 finishedAt, openUrl, items: [{ instanceId, profileId, name, status: pending|running|done|exists|error,
@@ -126,6 +132,8 @@ upgrade applies as soon as it is downloaded instead of waiting for the extension
   stale on disk.
 - **Prefetch on page load + per-model TTL cache.** A resolve costs two MakerWorld round-trips inside
   Bambuddy (~0.5 s); doing it when the tab finishes loading is what makes the popup feel instant.
+  The cache stores a slimmed response and is capped in number, so browsing alone cannot fill the
+  session quota.
 - **Thumbnails at 200 px through Bambuddy's proxy.** The CDN honours `image_process=resize,w_N`,
   turning ~1.3 MB covers into ~8 KB, and the proxy keeps the browser's IP away from the CDN.
 - **No `tabs` permission.** `activeTab` plus the MakerWorld host permission cover everything the

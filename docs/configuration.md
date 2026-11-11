@@ -22,6 +22,7 @@ apart.
 | Parallel imports | 3 | 1–6 | Plates downloaded concurrently when several are selected |
 | Notify when an import finishes | on | | Desktop notification with the outcome; clicking it opens the target folder in Bambuddy |
 | Model cache (seconds) | 300 | 30–3600 | How long a resolved model page is kept so the popup opens instantly |
+| Models kept in cache | 200 | 10–1000 | Most resolved models kept at once; the oldest makes room for a new one |
 | Show "Open in Bambuddy" after import | on | | Button to jump to the target folder after an import |
 | Show import buttons on MakerWorld pages | on | | The bubble on model thumbnails and the **Import to Bambuddy** button on model pages |
 

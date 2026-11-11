@@ -16,6 +16,13 @@ only when `manifest.json` changes).
 - New screenshots on the site, in the README and in both stores: the picker from the search
   results and from a model page, and the settings page; the toolbar popup stays as the main image.
 - `amo-previews` workflow: sync the AMO listing screenshots with `docs/screenshots/`.
+- Settings: **Models kept in cache** (default 200) caps how many resolved models are kept.
+
+### Fixed
+
+- Browsing MakerWorld no longer fills the browser's session storage ("Session storage quota bytes
+  exceeded"). The model cache keeps only what the picker shows — a few KB per model instead of the
+  full MakerWorld design — and drops the oldest model once the cap is reached.
 
 ## [0.9.7] - 2026-10-21
 

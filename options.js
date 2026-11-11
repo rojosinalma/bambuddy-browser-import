@@ -17,6 +17,7 @@ const pageButtonsChk = document.getElementById('page-buttons');
 const notifyChk      = document.getElementById('notify-complete');
 const concurrencyIn  = document.getElementById('concurrency');
 const resolveTtlIn   = document.getElementById('resolve-ttl');
+const resolveMaxIn   = document.getElementById('resolve-max');
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -86,8 +87,10 @@ async function loadSettings() {
   notifyChk.checked      = s[STORAGE_KEYS.NOTIFY_ON_COMPLETE];
   concurrencyIn.value    = s[STORAGE_KEYS.CONCURRENCY];
   resolveTtlIn.value     = s[STORAGE_KEYS.RESOLVE_TTL];
+  resolveMaxIn.value     = s[STORAGE_KEYS.RESOLVE_MAX];
   concurrencyIn.min = LIMITS.CONCURRENCY.min; concurrencyIn.max = LIMITS.CONCURRENCY.max;
   resolveTtlIn.min  = LIMITS.RESOLVE_TTL.min;  resolveTtlIn.max  = LIMITS.RESOLVE_TTL.max;
+  resolveMaxIn.min  = LIMITS.RESOLVE_MAX.min;  resolveMaxIn.max  = LIMITS.RESOLVE_MAX.max;
 }
 
 // ─── Save ─────────────────────────────────────────────────────────────────────
@@ -140,7 +143,8 @@ async function save() {
     [STORAGE_KEYS.PAGE_BUTTONS]:       pageButtonsChk.checked,
     [STORAGE_KEYS.NOTIFY_ON_COMPLETE]: notifyChk.checked,
     [STORAGE_KEYS.CONCURRENCY]:        clamp(concurrencyIn.value, LIMITS.CONCURRENCY, DEFAULTS[STORAGE_KEYS.CONCURRENCY]),
-    [STORAGE_KEYS.RESOLVE_TTL]:        clamp(resolveTtlIn.value, LIMITS.RESOLVE_TTL, DEFAULTS[STORAGE_KEYS.RESOLVE_TTL])
+    [STORAGE_KEYS.RESOLVE_TTL]:        clamp(resolveTtlIn.value, LIMITS.RESOLVE_TTL, DEFAULTS[STORAGE_KEYS.RESOLVE_TTL]),
+    [STORAGE_KEYS.RESOLVE_MAX]:        clamp(resolveMaxIn.value, LIMITS.RESOLVE_MAX, DEFAULTS[STORAGE_KEYS.RESOLVE_MAX])
   });
   await chrome.storage.session.clear();
 
