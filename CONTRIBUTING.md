@@ -24,7 +24,7 @@ Unpacked builds read it once on install and fill in whatever is still unset.
 
 `bin/dev-build` produces `build/bambuddy-browser-import-dev.zip` (files at the archive root, constant
 name, so it extracts to the same folder every time) and, when a dev signing key exists at
-`~/.config/bambuddy-browser-import/dev-signing-key.pem` (or `$BBI_DEV_KEY`),
+`dev-signing-key.pem` in the project root (gitignored; or `$BBI_DEV_KEY`),
 `build/bambuddy-browser-import-dev.crx` signed with it — a stable extension id distinct from the
 store's, so installing a new build over the old one keeps storage. The staged manifest gets a fourth
 version component so every build is an upgrade; the repo manifest is untouched. `--seed` packs

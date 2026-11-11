@@ -5,7 +5,7 @@
 #                                           extracts to the same folder every time,
 #                                           so "Load unpacked" + Reload keeps working.
 #   build/bambuddy-browser-import-dev.crx   signed with the local dev key
-#                                           (~/.config/bambuddy-browser-import/dev-signing-key.pem),
+#                                           (dev-signing-key.pem in the project root, gitignored),
 #                                           so the extension id is stable across builds and
 #                                           distinct from the store id. Installing it over the
 #                                           previous build keeps storage. Chromium on Windows
@@ -19,7 +19,7 @@
 set -eu
 cd "$(dirname "$0")/.."
 
-key=${BBI_DEV_KEY:-$HOME/.config/bambuddy-browser-import/dev-signing-key.pem}
+key=${BBI_DEV_KEY:-dev-signing-key.pem}
 name=bambuddy-browser-import-dev
 stage=build/stage
 files=$(sed -n 's/^ *PACKAGE_FILES: *//p' .github/workflows/release.yml)

@@ -1,3 +1,5 @@
 # Local-only settings seed read by background.js on install (holds the API key)
 dev-settings.json
+# Local dev-build signing key (bin/dev-build); never committed
+dev-signing-key.pem
 build/
