@@ -80,8 +80,8 @@ results and the button on a model page.
 
 - `README.md` — what it is, requirements (with minimum versions), installation, usage, development,
   licence. Nothing else goes there.
-- `CHANGELOG.md` — Keep a Changelog; one section per version, *Unreleased* on top. The release
-  notes on GitHub carry the same section.
+- `CHANGELOG.md` — Keep a Changelog; one section per version, *Unreleased* on top, each opening
+  with a short summary for users. The release notes on GitHub are built from the same section.
 - `SECURITY.md`, `CODE_OF_CONDUCT.md`, `LICENSE` (AGPL-3.0, with the MIT notice for the inherited
   parts at the end) — the project documents; `.github/` holds the issue and PR templates.
 - `docs/features.md` — what the extension does.
@@ -108,15 +108,18 @@ release `v<version>` already exists it stops with a notice, otherwise it:
    channel, so AMO signs and distributes it after review);
 4. tags the commit `v<version>`, signed with the release key (`TAG_SIGNING_KEY`: an armored GPG
    private key without passphrase; the tagger is the key's user ID), and creates the GitHub release
-   from that tag with generated notes and all packages attached. Without the secret, the release
+   from that tag with all packages attached. The notes come from `scripts/release-notes.sh`: the
+   version's `CHANGELOG.md` section plus the install hints; a version without a section stops the
+   workflow before anything is built. Without the secret, the release
    gets a plain tag;
 5. uploads the `.crx` to the Chrome Web Store item and submits it for review
    (`CWS_CLIENT_ID` / `CWS_CLIENT_SECRET` / `CWS_REFRESH_TOKEN`). This step is non-fatal: the store
    refuses an upload while the previous version is still in review.
 
 So a release is: move the *Unreleased* section of `CHANGELOG.md` under the new version with the
-date, bump `version` in `manifest.json`, commit (signed), push to `main`, then paste that changelog
-section into the GitHub release the workflow created (`gh release edit v<version> --notes-file …`).
+date and a short summary for users on top, bump `version` in `manifest.json`, commit (signed) and
+push to `main`. To fix the notes of a published release, edit its changelog section and run
+`scripts/release-notes.sh <version> | gh release edit v<version> --notes-file -`.
 Steps that need a secret are skipped when it is absent, so the workflow also works on a fork without
 store access.
 

@@ -3,7 +3,8 @@
 All notable changes to Bambuddy Browser Import are listed here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow
 [Semantic Versioning](https://semver.org/). Every version is a GitHub release with the same notes;
-the version is `version` in `manifest.json`.
+the version is `version` in `manifest.json`. Each version opens with a short summary for users;
+the sections below it list every change.
 
 ## [Unreleased]
 
@@ -11,6 +12,10 @@ These changes are in `main` and ship with the next version bump (the stores rece
 only when `manifest.json` changes).
 
 ## [0.9.8] - 2026-11-11
+
+Browsing MakerWorld no longer fills the browser's session storage, which could stop models from
+loading. A new setting caps how many models stay in the cache. New screenshots in both stores, on
+the site and in the README.
 
 ### Added
 
@@ -27,6 +32,10 @@ only when `manifest.json` changes).
   full MakerWorld design — and drops the oldest model once the cap is reached.
 
 ## [0.9.7] - 2026-10-21
+
+Models load and import again when the browser's session storage is full. The licence is now
+AGPL-3.0, and the project has a security policy, a code of conduct, a changelog and an automatic
+check on every push.
 
 ### Changed
 
@@ -53,11 +62,18 @@ only when `manifest.json` changes).
 
 ## [0.9.6] - 2026-10-13
 
+The **Import to Bambuddy** button on model pages is now solid, in MakerWorld's accent colour, so it
+is easier to find.
+
 ### Changed
 
 - Model page: the **Import to Bambuddy** button is solid, in MakerWorld's accent colour.
 
 ## [0.9.5] - 2026-10-13
+
+Import straight from MakerWorld: an import bubble on every model thumbnail and an **Import to
+Bambuddy** button on model pages open the picker inside the page, without the toolbar. Both can be
+turned off in Settings. Updates now install as soon as the browser downloads them.
 
 ### Added
 
@@ -82,6 +98,9 @@ Superseded by 0.9.5 the same day; its changes are listed there.
 
 ## [0.9.3] - 2026-10-05
 
+A more compact model card shows four profiles at once in the popup. New versions now go to the
+Chrome Web Store automatically.
+
 ### Changed
 
 - Compact model card: the popup shows four profiles at once.
@@ -94,12 +113,16 @@ Superseded by 0.9.5 the same day; its changes are listed there.
 
 ## [0.9.2] - 2026-09-30
 
+The page integration is rewritten, and the extension is called Bambuddy Browser Import everywhere.
+
 ### Changed
 
 - Content script rewritten; the UI is named Bambuddy Browser Import throughout.
 - Site: privacy and terms links in the footer.
 
 ## [0.9.1] - 2026-09-30
+
+A new icon and branding, and a project site with the privacy policy and terms of service.
 
 ### Added
 
@@ -108,7 +131,10 @@ Superseded by 0.9.5 the same day; its changes are listed there.
 
 ## [0.9.0] - 2026-09-30
 
-First release under this name, prepared for the Chrome Web Store and addons.mozilla.org.
+First release under this name: pick one or more print profiles on a MakerWorld model and import them
+into the Bambuddy folder you choose, in Chrome and Firefox.
+
+Prepared for the Chrome Web Store and addons.mozilla.org.
 
 ### Added
 
