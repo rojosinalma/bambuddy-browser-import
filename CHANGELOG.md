@@ -11,6 +11,15 @@ the sections below it list every change.
 These changes are in `main` and ship with the next version bump (the stores receive a new build
 only when `manifest.json` changes).
 
+### Fixed
+
+- Options Save / Test Connection: call `permissions.request` without awaiting `contains` first so
+  Chrome keeps the click’s user gesture.
+- Gear in the picker: open Options via the background worker when `runtime.openOptionsPage` is
+  missing (Firefox embed).
+- Embed picker progress: poll `getJob` while an import runs so Firefox still updates the pane when
+  `storage.session` change events don’t arrive.
+
 ## [0.9.8] - 2026-11-11
 
 Browsing MakerWorld no longer fills the browser's session storage, which could stop models from

@@ -395,12 +395,48 @@ async function createFolder() {
 
 // ─── Job rendering ───────────────────────────────────────────────────────────
 
+let jobPollTimer = null;
+
+function stopJobWatch() {
+  if (jobPollTimer !== null) {
+    clearInterval(jobPollTimer);
+    jobPollTimer = null;
+  }
+}
+
+/** Live updates: storage.onChanged is enough in Chrome; Firefox (esp. the
+ *  MakerWorld embed iframe) often misses session writes, so poll getJob while
+ *  a job is running. */
+function watchJob(modelId) {
+  stopJobWatch();
+  if (modelId == null) return;
+  jobPollTimer = setInterval(() => {
+    if (session.modelId !== modelId) {
+      stopJobWatch();
+      return;
+    }
+    sendToBackground({ action: 'getJob', modelId })
+      .then(job => {
+        applyJob(job);
+        if (!job || job.status !== 'running') stopJobWatch();
+      })
+      .catch(() => {});
+  }, 400);
+}
+
+function cardForProfile(profileId) {
+  return session.cards.get(profileId)
+      ?? session.cards.get(Number(profileId))
+      ?? null;
+}
+
 function applyJob(job) {
   session.job = job;
   const progress = $('job-progress');
   const openBtn  = $('btn-open-bambuddy');
 
   if (!job) {
+    stopJobWatch();
     progress.style.display = 'none';
     openBtn.style.display = 'none';
     for (const c of session.cards.values()) {
@@ -413,7 +449,7 @@ function applyJob(job) {
   }
 
   for (const item of job.items) {
-    const c = session.cards.get(item.profileId);
+    const c = cardForProfile(item.profileId);
     if (!c) continue;
     const st = c.el.querySelector('.pc-status');
     st.className = `pc-status ${item.status}`;
@@ -452,6 +488,8 @@ function applyJob(job) {
   }
 
   refreshSelection();
+  if (job.status === 'running') watchJob(job.modelId);
+  else stopJobWatch();
 }
 
 async function runImport() {
@@ -476,18 +514,30 @@ async function runImport() {
       tabId:   session.tabId
     });
     applyJob(job);
+    watchJob(session.modelId);
   } catch (err) {
+    stopJobWatch();
     showResult('error', err.message ?? 'Import failed');
     refreshSelection();
   }
 }
 
+function onJobStorageChange(changes) {
+  if (session.modelId === null) return;
+  const key = `${SESSION.JOB}${session.modelId}`;
+  if (!(key in changes)) return;
+  applyJob(changes[key].newValue ?? null);
+}
+
 // Mirror job state written by the background worker.
 chrome.storage.onChanged.addListener((changes, area) => {
-  if (area !== 'session' || session.modelId === null) return;
-  const key = `${SESSION.JOB}${session.modelId}`;
-  if (key in changes) applyJob(changes[key].newValue ?? null);
+  if (area !== 'session') return;
+  onJobStorageChange(changes);
 });
+// Firefox: area-specific listener is more reliable than the global one for session.
+if (chrome.storage.session?.onChanged?.addListener) {
+  chrome.storage.session.onChanged.addListener(onJobStorageChange);
+}
 
 // ─── Boot ────────────────────────────────────────────────────────────────────
 
@@ -554,12 +604,23 @@ async function boot() {
   const hinted = pageProfileId ?? data.profile_id ?? profileIdFromHash(url);
   renderCards(data, hinted);
   applyJob(job);
+  if (job?.status === 'running') watchJob(modelId);
   showOnly('model');
 }
 
+async function openSettings() {
+  try {
+    if (typeof chrome.runtime.openOptionsPage === 'function') {
+      await chrome.runtime.openOptionsPage();
+      return;
+    }
+  } catch { /* Firefox embed / older chrome.* — fall through */ }
+  await sendToBackground({ action: 'openOptions' });
+}
+
 function init() {
-  $('btn-settings').addEventListener('click', () => chrome.runtime.openOptionsPage());
-  $('btn-go-settings').addEventListener('click', () => chrome.runtime.openOptionsPage());
+  $('btn-settings').addEventListener('click', () => { openSettings().catch(() => {}); });
+  $('btn-go-settings').addEventListener('click', () => { openSettings().catch(() => {}); });
   $('btn-import').addEventListener('click', runImport);
   $('btn-retry').addEventListener('click', boot);
   $('btn-select-all').addEventListener('click', () => { for (const id of session.cards.keys()) setSelected(id, true); refreshSelection(); });

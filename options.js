@@ -111,13 +111,14 @@ async function ensureHostPermission(url) {
   const origin  = parsedUrl.origin;
   const pattern = `${origin}/*`;
 
-  if (!(await chrome.permissions.contains({ origins: [pattern] }))) {
-    setStatus('busy', 'Requesting access to ', { code: origin }, '…');
-    const granted = await chrome.permissions.request({ origins: [pattern] });
-    if (!granted) {
-      setStatus('error', 'Permission to access ', { code: origin }, ' was denied. The extension cannot connect to Bambuddy without it.');
-      return null;
-    }
+  // Chrome only allows permissions.request inside the click's user-gesture
+  // turn. Do not await contains() (or anything else) first — that drops the
+  // gesture and throws "may only be called from a user input handler".
+  // request() resolves true immediately when the origin is already granted.
+  const granted = await chrome.permissions.request({ origins: [pattern] });
+  if (!granted) {
+    setStatus('error', 'Permission to access ', { code: origin }, ' was denied. The extension cannot connect to Bambuddy without it.');
+    return null;
   }
   return origin;
 }
