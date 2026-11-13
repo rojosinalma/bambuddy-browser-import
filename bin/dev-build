@@ -1,9 +1,10 @@
 #!/usr/bin/env sh
 # Dev build for loading into a browser without the stores.
 #
+#   build/unpacked/                         Chrome / Edge / Brave: Load unpacked → this folder
+#                                           (repo root has Jekyll `_layouts`, which Chrome rejects).
 #   build/bambuddy-browser-import-dev.zip   constant name, files at the archive root:
-#                                           extracts to the same folder every time,
-#                                           so "Load unpacked" + Reload keeps working.
+#                                           extracts to the same folder every time.
 #   build/bambuddy-browser-import-dev.crx   signed with the local dev key
 #                                           (dev-signing-key.pem in the project root, gitignored),
 #                                           so the extension id is stable across builds and
@@ -22,6 +23,7 @@ cd "$(dirname "$0")/.."
 key=${BBI_DEV_KEY:-dev-signing-key.pem}
 name=bambuddy-browser-import-dev
 stage=build/stage
+unpacked=build/unpacked
 files=$(sed -n 's/^ *PACKAGE_FILES: *//p' .github/workflows/release.yml)
 seed=no
 [ "${1:-}" = "--seed" ] && seed=yes
@@ -34,7 +36,7 @@ echo "$n" > build/.n
 base=$(jq -r .version manifest.json)
 version="$base.$n"
 
-rm -rf "$stage" "build/$name.zip" "build/$name.crx"
+rm -rf "$stage" "$unpacked" "build/$name.zip" "build/$name.crx"
 mkdir -p "$stage"
 # shellcheck disable=SC2086
 cp -r $files "$stage/"
@@ -47,9 +49,31 @@ fi
 
 (cd "$stage" && zip -qr -X "../$name.zip" .)
 [ -f "$key" ] && python3 scripts/build-crx.py --key "$key" --zip "build/$name.zip" --out "build/$name.crx"
+
+# Chrome-safe tree for Load unpacked (no `_layouts` / docs / site files).
+mkdir -p "$unpacked"
+cp -R "$stage"/. "$unpacked"/
 rm -rf "$stage"
 
-id=$(openssl rsa -in "$key" -pubout -outform DER 2>/dev/null | sha256sum | head -c 32 | tr '0-9a-f' 'a-p')
+file_meta() {
+  f=$1
+  if command -v sha256sum >/dev/null 2>&1; then
+    sum=$(sha256sum "$f" | head -c 12)
+  else
+    sum=$(shasum -a 256 "$f" | head -c 12)
+  fi
+  bytes=$(wc -c < "$f" | tr -d ' ')
+  echo "$bytes bytes, sha256 \`${sum}…\`"
+}
+
+id=-
+if [ -f "$key" ]; then
+  if command -v sha256sum >/dev/null 2>&1; then
+    id=$(openssl rsa -in "$key" -pubout -outform DER 2>/dev/null | sha256sum | head -c 32 | tr '0-9a-f' 'a-p' || echo -)
+  else
+    id=$(openssl rsa -in "$key" -pubout -outform DER 2>/dev/null | shasum -a 256 | head -c 32 | tr '0-9a-f' 'a-p' || echo -)
+  fi
+fi
 {
   echo "# Dev build $version"
   echo
@@ -59,13 +83,14 @@ id=$(openssl rsa -in "$key" -pubout -outform DER 2>/dev/null | sha256sum | head 
   echo "| Built | $(date '+%Y-%m-%d %H:%M %Z') |"
   echo "| Commit | \`$(git rev-parse --short HEAD 2>/dev/null || echo -)\` on \`$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo -)\` |"
   echo "| Extension id | \`$id\` |"
+  echo "| Load unpacked | \`build/unpacked\` |"
   for f in "build/$name.crx" "build/$name.zip"; do
-    [ -f "$f" ] && echo "| $(basename "$f") | $(stat -c %s "$f") bytes, sha256 \`$(sha256sum "$f" | head -c 12)…\` |"
+    [ -f "$f" ] && echo "| $(basename "$f") | $(file_meta "$f") |"
   done
   echo
-  echo "Chromium browsers apply an upgrade only once the extension is idle; the build reloads itself when the"
-  echo "update is pending, so closing the options tab is enough. Check the version at chrome://extensions → Details"
-  echo "(or your browser's equivalent page)."
+  echo "Chromium: Load unpacked → \`build/unpacked\` (do not point at the repo root — Chrome rejects \`_layouts\`)."
+  echo "After edits: re-run \`bin/dev-build\`, then Reload on chrome://extensions."
+  echo "Firefox: about:debugging → Load Temporary Add-on → repo \`manifest.json\` is fine."
 } > build/BUILD.md
-echo "version $version  id $id  seed $seed"
-ls -l "build/$name.zip" "build/$name.crx" build/BUILD.md 2>/dev/null
+echo "version $version  id $id  seed $seed  unpacked $unpacked"
+ls -l "$unpacked/manifest.json" "build/$name.zip" "build/$name.crx" build/BUILD.md 2>/dev/null || true

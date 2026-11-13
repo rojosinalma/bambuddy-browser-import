@@ -6,12 +6,14 @@ as pull requests against `main`.
 
 ## Running it locally
 
-There is no build step. Clone the repo and load the folder as an unpacked extension:
+There is no bundler. Clone the repo, then load it as an unpacked extension:
 
-- **Chrome / Chromium / Edge / Brave** — `chrome://extensions/` → Developer mode → **Load unpacked**
-  → select the repo folder. After editing a file, hit *Reload* on that page.
 - **Firefox (≥ 140)** — `about:debugging#/runtime/this-firefox` → **Load Temporary Add-on…** →
-  select `manifest.json`. Use *Reload* there after edits.
+  select `manifest.json` in the repo root. Use *Reload* there after edits.
+- **Chrome / Chromium / Edge / Brave** — do **not** Load unpacked on the repo root: the GitHub
+  Pages `_layouts/` folder makes Chrome refuse the package. Run `bin/dev-build`, then
+  `chrome://extensions/` → Developer mode → **Load unpacked** → select `build/unpacked`.
+  After edits, re-run `bin/dev-build` and hit *Reload* on the extension card.
 
 Point it at a Bambuddy instance through the options page (icon → gear). To skip the typing on every
 fresh install, put a `dev-settings.json` next to `manifest.json` (gitignored):
@@ -22,9 +24,9 @@ fresh install, put a `dev-settings.json` next to `manifest.json` (gitignored):
 
 Unpacked builds read it once on install and fill in whatever is still unset.
 
-`bin/dev-build` produces `build/bambuddy-browser-import-dev.zip` (files at the archive root, constant
-name, so it extracts to the same folder every time) and, when a dev signing key exists at
-`dev-signing-key.pem` in the project root (gitignored; or `$BBI_DEV_KEY`),
+`bin/dev-build` stages `build/unpacked` (Chrome Load unpacked), plus
+`build/bambuddy-browser-import-dev.zip` (files at the archive root, constant name) and, when a
+dev signing key exists at `dev-signing-key.pem` in the project root (gitignored; or `$BBI_DEV_KEY`),
 `build/bambuddy-browser-import-dev.crx` signed with it — a stable extension id distinct from the
 store's, so installing a new build over the old one keeps storage. The staged manifest gets a fourth
 version component so every build is an upgrade; the repo manifest is untouched. `--seed` packs
@@ -60,8 +62,10 @@ results and the button on a model page.
   in `scripts`. Do not add the `tabs` permission.
 - Two-space indent, single quotes, semicolons, aligned object literals where it helps reading. Match
   the surrounding file.
-- Layout: `manifest.json`, `shared.js`, `background.js`, `content.js`, `page.js`, `popup.*`,
-  `options.*`, `icons/` (rendered from `icons/src/icon.svg`), `scripts/build-crx.py`, `bin/dev-build`.
+- Layout: `manifest.json`, `shared.js`, `shared-ui.css`, `background.js`, `content.js`, `page.js`,
+  `topoff.js`, `popup.*`, `options.*`, `icons/` (rendered from `icons/src/icon.svg`),
+  `scripts/build-crx.py`, `bin/dev-build`. Tokens and compact buttons live in `shared-ui.css`
+  (popup + Top-off); do not re-copy hex values into `topoff.js`.
   The GitHub Pages site is `index.md`, `_config.yml`, `_layouts/`, `assets/`, `CNAME`, `PRIVACY.md`,
   `TERMS.md`; `_config.yml` excludes the extension files from the site.
 
