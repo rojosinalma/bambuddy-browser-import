@@ -530,6 +530,12 @@ async function handleMessage(message, sender) {
       return { ...sysInfo, mw_status: mwStatus, mw_error: mwError };
     }
 
+    case 'openOptions':
+      // Popup may be an iframe on makerworld.com; chrome.runtime.openOptionsPage
+      // is missing or throws there (esp. Firefox). Open from the worker instead.
+      await chrome.runtime.openOptionsPage();
+      return true;
+
     default:
       throw new Error(`Unknown action: ${message.action}`);
   }
