@@ -25,6 +25,8 @@ apart.
 | Models kept in cache | 200 | 10–1000 | Most resolved models kept at once; the oldest makes room for a new one |
 | Show "Open in Bambuddy" after import | on | | Button to jump to the target folder after an import |
 | Show import buttons on MakerWorld pages | on | | The bubble on model thumbnails and the **Import to Bambuddy** button on model pages |
+| Collection Top-off | on | | On `/collections/` pages, scan cards and batch-import missing default plates into the last-used folder |
+| Top-off checks at a time | 2 | 1–4 | Parallel membership checks while scanning a collection (each check is a Bambuddy `resolve` today) |
 
 Defaults and ranges are defined once in `shared.js` (`DEFAULTS`, `LIMITS`); the options page clamps
 values to those ranges.

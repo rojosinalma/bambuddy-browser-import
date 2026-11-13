@@ -20,6 +20,7 @@ One Manifest V3 codebase, plain JavaScript, no bundler, no build step. The same 
 | Popup / picker | `popup.html`, `popup.js`, `popup.css` | toolbar popup, or an iframe injected into a MakerWorld page (`?embed=1&url=…[&profile=…]`) | Renders the profile cards, folder picker and job progress. Owns no long-running work. |
 | Content script | `content.js` | makerworld.com, isolated world | Answers "which profile is selected on this page?" (URL hash → DOM → `__NEXT_DATA__`). |
 | Page script | `page.js` | makerworld.com, isolated world, after `content.js` | Adds the import bubble on model cards and the **Import to Bambuddy** button on model pages, and hosts the embedded picker iframe. |
+| Collection Top-off | `topoff.js` | makerworld.com, isolated world, after `page.js` | On `/collections/` pages only (when enabled): membership scan via `resolve`, In library / Needs import pills, batch import of each model’s default plate through `startImport` into `lastFolderId`. |
 | Options page | `options.html`, `options.js`, `options.css` | extension page | Connection and behaviour settings, host-permission request, **Test Connection**. |
 | Packaging | `scripts/build-crx.py`, `bin/dev-build`, `.github/workflows/release.yml` | CI / developer machine | Zips the extension, signs the Chrome `.crx`, submits to the stores. |
 

@@ -11,7 +11,8 @@
     "notifications"
   ],
   "host_permissions": [
-    "https://makerworld.com/*"
+    "https://makerworld.com/*",
+    "https://www.makerworld.com/*"
   ],
   "optional_host_permissions": [
     "<all_urls>"
@@ -33,16 +34,16 @@
 
   "content_scripts": [
     {
-      "matches": ["https://makerworld.com/*"],
-      "js": ["shared.js", "content.js", "page.js"],
+      "matches": ["https://makerworld.com/*", "https://www.makerworld.com/*"],
+      "js": ["shared.js", "content.js", "page.js", "topoff.js"],
       "run_at": "document_idle"
     }
   ],
 
   "web_accessible_resources": [
     {
-      "resources": ["popup.html", "popup.js", "popup.css", "shared.js", "icons/*.png"],
-      "matches": ["https://makerworld.com/*"]
+      "resources": ["popup.html", "popup.js", "popup.css", "shared-ui.css", "shared.js", "icons/*.png"],
+      "matches": ["https://makerworld.com/*", "https://www.makerworld.com/*"]
     }
   ],
 

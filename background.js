@@ -119,8 +119,15 @@ function resolveTtlMs(settings) {
 function slimResolve(d) {
   const pick = (o, keys) => Object.fromEntries(keys.filter(k => o?.[k] !== undefined).map(k => [k, o[k]]));
   const design = d?.design ?? {};
+  // Keep already_imported_library_ids: collection Top-off (and the picker) use
+  // it for membership without a second round-trip. Dropping it forced every
+  // "in library?" check to re-import or guess.
+  const imported = Array.isArray(d?.already_imported_library_ids)
+    ? d.already_imported_library_ids.filter(id => Number.isFinite(Number(id))).map(Number)
+    : [];
   return {
     ...pick(d, ['model_id', 'profile_id']),
+    already_imported_library_ids: imported,
     design: {
       ...pick(design, ['title', 'coverUrl', 'cover_url']),
       instances: (Array.isArray(design.instances) ? design.instances : []).map(i => {
@@ -234,6 +241,21 @@ async function getJob(modelId) {
 
 async function saveJob(job) {
   await sessionSet({ [jobKey(job.modelId)]: job });
+  notifyJobListeners(job);
+}
+
+/** Content scripts (Top-off) often cannot read storage.session — push job
+ *  updates to MakerWorld tabs so pills stay in sync with the picker. Host
+ *  permission for makerworld.com is enough for query/sendMessage (no tabs perm). */
+function notifyJobListeners(job) {
+  const message = { action: 'jobUpdate', job };
+  chrome.tabs.query({ url: ['*://makerworld.com/*', '*://www.makerworld.com/*'] })
+    .then(tabs => {
+      for (const tab of tabs) {
+        if (tab.id != null) chrome.tabs.sendMessage(tab.id, message).catch(() => {});
+      }
+    })
+    .catch(err => console.debug('[bambuddy] job notify:', err.message));
 }
 
 async function startImport({ modelId, title, folderId, items, tabId }) {

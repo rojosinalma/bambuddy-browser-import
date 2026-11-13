@@ -1,0 +1,130 @@
+/**
+ * Shared visual tokens + controls for the popup and in-page Top-off bar.
+ * Loaded by popup.html and injected (web-accessible) by topoff.js so both
+ * surfaces stay on one palette without copying hex values.
+ *
+ * Button rules mirror popup.css `.btn-primary` / `.btn-mini`, with stronger
+ * resets so MakerWorld's global `button` styles cannot reshape them.
+ */
+
+:root, .bbi-theme {
+  --green:     #1db954;
+  --green-dk:  #158f3e;
+  --bg:        #0f1117;
+  --surface:   #1c1f2a;
+  --surface2:  #252836;
+  --border:    #2e3347;
+  --text:      #e8eaf0;
+  --muted:     #7a7f95;
+  --danger:    #ff7070;
+  --radius:    10px;
+  --shadow:    0 4px 20px rgba(0, 0, 0, .45);
+  --font:      "Inter", "Segoe UI", system-ui, sans-serif;
+}
+
+/* Floating surface — same charcoal family as the picker body. */
+.bbi-panel {
+  box-sizing: border-box;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  border-radius: 12px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, .45);
+  font: 13px/1.5 var(--font);
+  -webkit-font-smoothing: antialiased;
+}
+
+.bbi-brand {
+  font-weight: 700;
+  color: var(--green);
+  font-size: 11px;
+  letter-spacing: .01em;
+}
+
+.bbi-muted {
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 500;
+}
+
+/*
+ * Base control reset — MakerWorld sets appearance/border/padding on `button`.
+ * Keep this ahead of the variants so radius/colour stick.
+ */
+.bbi-theme .bbi-btn,
+.bbi-btn {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 0;
+  border-radius: 8px !important;
+  padding: 8px 12px;
+  font-family: var(--font) !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  line-height: 1.2 !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  text-decoration: none !important;
+  cursor: pointer;
+  border-style: solid !important;
+  border-width: 1px !important;
+  transition: background .15s, border-color .15s, color .15s, opacity .15s;
+}
+.bbi-btn:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}
+/* display:!important above would otherwise beat the HTML `hidden` attribute. */
+.bbi-btn[hidden],
+.bbi-panel [hidden] {
+  display: none !important;
+}
+
+/* Same as popup `.btn-primary` — green fill, white label, no outline. */
+.bbi-btn--primary {
+  border-color: var(--green) !important;
+  border-width: 0 !important;
+  background: var(--green) !important;
+  color: #fff !important;
+  padding: 9px 14px;
+}
+.bbi-btn--primary:hover:not(:disabled) {
+  background: var(--green-dk) !important;
+}
+
+/* Same language as popup `.btn-mini` — flat chip, quiet border. */
+.bbi-btn--secondary {
+  border-color: var(--border) !important;
+  background: var(--surface2) !important;
+  color: var(--muted) !important;
+  padding: 6px 10px;
+  border-radius: 6px !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+}
+.bbi-btn--secondary:hover:not(:disabled) {
+  background: var(--border) !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+}
+.bbi-btn--secondary.is-active {
+  border-color: var(--green) !important;
+  background: rgba(29, 185, 84, .15) !important;
+  color: var(--green) !important;
+}
+
+.bbi-btn--danger {
+  border-width: 0 !important;
+  border-color: transparent !important;
+  background: var(--danger) !important;
+  color: #fff !important;
+  padding: 9px 14px;
+}
+.bbi-btn--danger:hover:not(:disabled) {
+  filter: brightness(1.06);
+}

@@ -11,6 +11,22 @@ the sections below it list every change.
 These changes are in `main` and ship with the next version bump (the stores receive a new build
 only when `manifest.json` changes).
 
+### Added
+
+- **Collection Top-off** on MakerWorld `/collections/` pages: scan cards for In library vs
+  Needs import, Missing-only filter (dims in-library cards), Choose… selection, and Import missing
+  (default plate into the last-used folder) with live batch progress. Toggle and check concurrency
+  apply immediately under Behaviour in Settings.
+- `www.makerworld.com` host / content-script matches (same as bare `makerworld.com`).
+- Shared `shared-ui.css` tokens and buttons for the popup and Top-off bar.
+
+### Changed
+
+- Resolve cache (`slimResolve`) keeps `already_imported_library_ids` so membership checks and
+  Top-off do not lose Bambuddy’s library signal.
+- `bin/dev-build` stages `build/unpacked` for Chrome Load unpacked (repo root includes Jekyll
+  `_layouts`, which Chromium rejects).
+
 ### Fixed
 
 - Options Save / Test Connection: call `permissions.request` without awaiting `contains` first so
@@ -19,6 +35,8 @@ only when `manifest.json` changes).
   missing (Firefox embed).
 - Embed picker progress: poll `getJob` while an import runs so Firefox still updates the pane when
   `storage.session` change events don’t arrive.
+- Top-off pills stay in sync when the picker finishes an import (background `jobUpdate` to
+  MakerWorld tabs).
 
 ## [0.9.8] - 2026-11-11
 

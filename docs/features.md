@@ -15,6 +15,11 @@
   model pages. Both open the same picker in an in-page panel; no toolbar click needed.
 - **Already-imported detection** — plates that are already in your library are reported as such
   and not downloaded again.
+- **Collection Top-off** — on MakerWorld collection pages, scan loaded cards for what’s already
+  in Bambuddy vs what’s missing, filter to Missing only, Choose… a subset, and import missing
+  default plates into your last-used folder. Membership today uses `resolve` (and keeps
+  `already_imported_library_ids` in the session cache); a future Bambuddy DB-only
+  `library-status` API would cut MakerWorld traffic for large collections.
 - **One codebase, two browsers** — plain MV3 JavaScript with no build step, running as a service
   worker in Chrome and as an event page in Firefox.
 - **Your server only** — the extension talks to the Bambuddy URL you configure and reads the
