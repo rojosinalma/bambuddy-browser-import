@@ -13,7 +13,9 @@ const STORAGE_KEYS = {
   CONCURRENCY:        'importConcurrency',
   RESOLVE_TTL:        'resolveCacheTtl',
   RESOLVE_MAX:        'resolveCacheMax',
-  LAST_FOLDER_ID:     'lastFolderId'
+  LAST_FOLDER_ID:     'lastFolderId',
+  TOP_OFF:            'collectionTopOff',
+  TOP_OFF_CHECKS:     'collectionTopOffChecks'
 };
 
 const DEFAULTS = {
@@ -23,13 +25,23 @@ const DEFAULTS = {
   [STORAGE_KEYS.CONCURRENCY]:        3,
   [STORAGE_KEYS.RESOLVE_TTL]:        300,
   [STORAGE_KEYS.RESOLVE_MAX]:        200,
-  [STORAGE_KEYS.LAST_FOLDER_ID]:     null
+  [STORAGE_KEYS.LAST_FOLDER_ID]:     null,
+  [STORAGE_KEYS.TOP_OFF]:            true,
+  [STORAGE_KEYS.TOP_OFF_CHECKS]:     2
 };
 
 const LIMITS = {
-  CONCURRENCY: { min: 1, max: 6 },
-  RESOLVE_TTL: { min: 30, max: 3600 },
-  RESOLVE_MAX: { min: 10, max: 1000 }
+  CONCURRENCY:     { min: 1, max: 6 },
+  RESOLVE_TTL:     { min: 30, max: 3600 },
+  RESOLVE_MAX:     { min: 10, max: 1000 },
+  TOP_OFF_CHECKS:  { min: 1, max: 4 }
+};
+
+/** Collection Top-off timing (not user settings — keeps MakerWorld gentle). */
+const TOPOFF_TIMING = {
+  BATCH_GAP_MS:  600,
+  BACKOFF_MS:    20_000,
+  JOB_POLL_MS:   400
 };
 
 /** Session-storage key prefixes (chrome.storage.session — cleared on browser exit). */
@@ -108,4 +120,69 @@ function flattenFolders(tree, depth = 0, out = []) {
     flattenFolders(f.children, depth + 1, out);
   }
   return out;
+}
+
+function pickNum(obj, ...keys) {
+  for (const k of keys) {
+    const v = obj?.[k];
+    if (typeof v === 'number' && Number.isFinite(v)) return v;
+    if (typeof v === 'string' && v.trim() !== '' && Number.isFinite(Number(v))) return Number(v);
+  }
+  return null;
+}
+
+function pickStr(obj, ...keys) {
+  for (const k of keys) {
+    const v = obj?.[k];
+    if (typeof v === 'string' && v.trim()) return v;
+  }
+  return '';
+}
+
+/** Library file ids Bambuddy already has for this model (resolve membership). */
+function alreadyImportedIds(resolveData) {
+  const ids = resolveData?.already_imported_library_ids;
+  return Array.isArray(ids) ? ids.filter(id => Number.isFinite(Number(id))).map(Number) : [];
+}
+
+/**
+ * One plate for collection Top-off / one-click import: URL hint → isDefault
+ * (highest rating) → first instance. Returns null when resolve has nothing usable.
+ */
+function pickDefaultPlate(resolveData, hintedProfileId = null) {
+  const design = resolveData?.design ?? {};
+  const instances = Array.isArray(design.instances) ? design.instances : [];
+  const title = pickStr(design, 'title') || 'Default plate';
+
+  if (instances.length === 0) {
+    const modelId = pickNum(resolveData, 'model_id');
+    if (modelId === null) return null;
+    return { profileId: modelId, instanceId: modelId, name: title };
+  }
+
+  const plates = [];
+  for (const inst of instances) {
+    const instanceId = pickNum(inst, 'id');
+    const profileId  = pickNum(inst, 'profileId');
+    if (instanceId === null || profileId === null) continue;
+    plates.push({
+      profileId,
+      instanceId,
+      name:   pickStr(inst, 'title') || `Profile ${profileId}`,
+      isDefault: inst.isDefault === true,
+      rating: pickNum(inst, 'ratingScoreTotal', 'rating') ?? 0
+    });
+  }
+  if (!plates.length) return null;
+
+  if (hintedProfileId != null) {
+    const hit = plates.find(p => p.profileId === hintedProfileId);
+    if (hit) return { profileId: hit.profileId, instanceId: hit.instanceId, name: hit.name };
+  }
+
+  const defaults = plates.filter(p => p.isDefault);
+  const pool = defaults.length ? defaults : plates;
+  pool.sort((a, b) => b.rating - a.rating);
+  const best = pool[0];
+  return { profileId: best.profileId, instanceId: best.instanceId, name: best.name };
 }

@@ -11,7 +11,7 @@ permissions:
 
 env:
   # Files that make up the extension. Everything else in the repo stays out of the packages.
-  PACKAGE_FILES: manifest.json shared.js background.js content.js page.js popup.html popup.js popup.css options.html options.js options.css icons
+  PACKAGE_FILES: manifest.json shared.js shared-ui.css background.js content.js page.js topoff.js popup.html popup.js popup.css options.html options.js options.css icons
 
 jobs:
   release:

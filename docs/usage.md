@@ -19,3 +19,17 @@ Plates already in your library are reported as such and not downloaded again.
 
 The in-page buttons can be turned off in Settings (*Show import buttons on MakerWorld pages*); the
 toolbar popup keeps working either way. See [configuration.md](configuration.md).
+
+## Collection Top-off
+
+Open a MakerWorld **collection** page. Loaded cards are checked against Bambuddy (via `resolve`
+today) and painted **In library** or **Needs import**. The floating panel summarises what’s
+missing; use **Import missing**, **Choose…**, or **Missing only** (dims in-library cards the same
+way Choose does). Imports use each model’s default plate and your last-used library folder (same as
+the picker remembers). While a batch runs, the panel shows import progress.
+
+Large collections can 429 MakerWorld because each check still goes through Bambuddy → cloud. Keep
+*Top-off checks at a time* low; a future Bambuddy `library-status` API
+([bambuddy#3493](https://github.com/maziggy/bambuddy/issues/3493) /
+[bambuddy#3527](https://github.com/maziggy/bambuddy/pull/3527)) is meant to replace that path with
+a DB-only membership lookup.

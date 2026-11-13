@@ -14,6 +14,8 @@ const statusEl       = document.getElementById('conn-status');
 const versionEl      = document.getElementById('version-tag');
 const showOpenBtnChk = document.getElementById('show-open-btn');
 const pageButtonsChk = document.getElementById('page-buttons');
+const topOffChk      = document.getElementById('collection-topoff');
+const topOffChecksIn = document.getElementById('topoff-checks');
 const notifyChk      = document.getElementById('notify-complete');
 const concurrencyIn  = document.getElementById('concurrency');
 const resolveTtlIn   = document.getElementById('resolve-ttl');
@@ -84,6 +86,8 @@ async function loadSettings() {
   keyInput.value         = s[STORAGE_KEYS.API_KEY] ?? '';
   showOpenBtnChk.checked = s[STORAGE_KEYS.SHOW_OPEN_BTN];
   pageButtonsChk.checked = s[STORAGE_KEYS.PAGE_BUTTONS];
+  topOffChk.checked      = s[STORAGE_KEYS.TOP_OFF];
+  topOffChecksIn.value   = s[STORAGE_KEYS.TOP_OFF_CHECKS];
   notifyChk.checked      = s[STORAGE_KEYS.NOTIFY_ON_COMPLETE];
   concurrencyIn.value    = s[STORAGE_KEYS.CONCURRENCY];
   resolveTtlIn.value     = s[STORAGE_KEYS.RESOLVE_TTL];
@@ -91,6 +95,7 @@ async function loadSettings() {
   concurrencyIn.min = LIMITS.CONCURRENCY.min; concurrencyIn.max = LIMITS.CONCURRENCY.max;
   resolveTtlIn.min  = LIMITS.RESOLVE_TTL.min;  resolveTtlIn.max  = LIMITS.RESOLVE_TTL.max;
   resolveMaxIn.min  = LIMITS.RESOLVE_MAX.min;  resolveMaxIn.max  = LIMITS.RESOLVE_MAX.max;
+  topOffChecksIn.min = LIMITS.TOP_OFF_CHECKS.min; topOffChecksIn.max = LIMITS.TOP_OFF_CHECKS.max;
 }
 
 // ─── Save ─────────────────────────────────────────────────────────────────────
@@ -111,13 +116,14 @@ async function ensureHostPermission(url) {
   const origin  = parsedUrl.origin;
   const pattern = `${origin}/*`;
 
-  if (!(await chrome.permissions.contains({ origins: [pattern] }))) {
-    setStatus('busy', 'Requesting access to ', { code: origin }, '…');
-    const granted = await chrome.permissions.request({ origins: [pattern] });
-    if (!granted) {
-      setStatus('error', 'Permission to access ', { code: origin }, ' was denied. The extension cannot connect to Bambuddy without it.');
-      return null;
-    }
+  // Chrome only allows permissions.request inside the click's user-gesture
+  // turn. Do not await contains() (or anything else) first — that drops the
+  // gesture and throws "may only be called from a user input handler".
+  // request() resolves true immediately when the origin is already granted.
+  const granted = await chrome.permissions.request({ origins: [pattern] });
+  if (!granted) {
+    setStatus('error', 'Permission to access ', { code: origin }, ' was denied. The extension cannot connect to Bambuddy without it.');
+    return null;
   }
   return origin;
 }
@@ -141,6 +147,8 @@ async function save() {
     [STORAGE_KEYS.API_KEY]:            key,
     [STORAGE_KEYS.SHOW_OPEN_BTN]:      showOpenBtnChk.checked,
     [STORAGE_KEYS.PAGE_BUTTONS]:       pageButtonsChk.checked,
+    [STORAGE_KEYS.TOP_OFF]:            topOffChk.checked,
+    [STORAGE_KEYS.TOP_OFF_CHECKS]:     clamp(topOffChecksIn.value, LIMITS.TOP_OFF_CHECKS, DEFAULTS[STORAGE_KEYS.TOP_OFF_CHECKS]),
     [STORAGE_KEYS.NOTIFY_ON_COMPLETE]: notifyChk.checked,
     [STORAGE_KEYS.CONCURRENCY]:        clamp(concurrencyIn.value, LIMITS.CONCURRENCY, DEFAULTS[STORAGE_KEYS.CONCURRENCY]),
     [STORAGE_KEYS.RESOLVE_TTL]:        clamp(resolveTtlIn.value, LIMITS.RESOLVE_TTL, DEFAULTS[STORAGE_KEYS.RESOLVE_TTL]),
@@ -237,7 +245,29 @@ btnSave.addEventListener('click', save);
 btnTest.addEventListener('click', testConnection);
 btnToggle.addEventListener('click', toggleKeyVisibility);
 
+// Behaviour toggles that drive content-script UI apply immediately so a refresh
+// after flipping Top-off off actually clears the collection bar (Save is still
+// required for URL / API key / permission).
+async function persistBehaviourFlags() {
+  await chrome.storage.local.set({
+    [STORAGE_KEYS.SHOW_OPEN_BTN]:      showOpenBtnChk.checked,
+    [STORAGE_KEYS.PAGE_BUTTONS]:       pageButtonsChk.checked,
+    [STORAGE_KEYS.TOP_OFF]:            topOffChk.checked,
+    [STORAGE_KEYS.TOP_OFF_CHECKS]:     clamp(topOffChecksIn.value, LIMITS.TOP_OFF_CHECKS, DEFAULTS[STORAGE_KEYS.TOP_OFF_CHECKS]),
+    [STORAGE_KEYS.NOTIFY_ON_COMPLETE]: notifyChk.checked,
+    [STORAGE_KEYS.CONCURRENCY]:        clamp(concurrencyIn.value, LIMITS.CONCURRENCY, DEFAULTS[STORAGE_KEYS.CONCURRENCY]),
+    [STORAGE_KEYS.RESOLVE_TTL]:        clamp(resolveTtlIn.value, LIMITS.RESOLVE_TTL, DEFAULTS[STORAGE_KEYS.RESOLVE_TTL]),
+    [STORAGE_KEYS.RESOLVE_MAX]:        clamp(resolveMaxIn.value, LIMITS.RESOLVE_MAX, DEFAULTS[STORAGE_KEYS.RESOLVE_MAX])
+  });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   loadSettings();
   loadVersion();
+  for (const el of [showOpenBtnChk, pageButtonsChk, topOffChk, notifyChk]) {
+    el.addEventListener('change', () => { persistBehaviourFlags().catch(() => {}); });
+  }
+  for (const el of [topOffChecksIn, concurrencyIn, resolveTtlIn, resolveMaxIn]) {
+    el.addEventListener('change', () => { persistBehaviourFlags().catch(() => {}); });
+  }
 });

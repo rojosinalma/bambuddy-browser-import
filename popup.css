@@ -1,17 +1,6 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-:root {
-  --green:     #1db954;
-  --green-dk:  #158f3e;
-  --bg:        #0f1117;
-  --surface:   #1c1f2a;
-  --surface2:  #252836;
-  --border:    #2e3347;
-  --text:      #e8eaf0;
-  --muted:     #7a7f95;
-  --radius:    10px;
-  --shadow:    0 4px 20px rgba(0,0,0,.45);
-}
+/* Tokens live in shared-ui.css (also used by Collection Top-off on MakerWorld). */
 
 body {
   width: 360px;
